@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.PLAYWRIGHT_TEST === "1" ? ".next-e2e" : ".next",
+  logging: {
+    incomingRequests: { ignore: [/^\/supplier\/upload(?:\/|\?|$)/] },
+  },
   async headers() {
     return [{
       source: "/supplier/upload/:path*",

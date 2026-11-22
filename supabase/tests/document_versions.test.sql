@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(24);
 
 insert into auth.users (id, aud, role, email, email_confirmed_at)
 values
@@ -49,6 +49,7 @@ reset role;
 set local role authenticated;
 select is((select status from public.document_request_items where id = '35000000-0000-0000-0000-000000000001'), 'submitted', 'upload submits item');
 select is((select count(*) from public.document_versions), 1::bigint, 'first version exists');
+select is((select count(*) from public.notifications), 0::bigint, 'employee uploads do not create supplier submission notifications');
 select lives_ok(
  $$select public.review_document('31000000-0000-0000-0000-000000000001','35000000-0000-0000-0000-000000000001','36000000-0000-0000-0000-000000000001','under_review',null,null)$$,
  'owner starts review');

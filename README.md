@@ -17,8 +17,9 @@ Use Node.js 24 and a running Docker daemon.
 4. Run `npm run dev` and open `http://localhost:3000`.
 5. To test owner registration, open the verification message in the local
    email testing interface at `http://127.0.0.1:54324` in the same browser.
-6. Run `npm run test:unit`, `npm run lint`, `npm run typecheck`,
-   `npm run test:rls`, and `npm run test:integration`.
+6. Install the browser with `npx playwright install chromium`, then run
+   `npm run test:all`. The coverage gate currently fails because overall
+   coverage is below the required 80%; see [testing](docs/TESTING.md).
 
 If Node.js 24 is not your default, you can start the app with
 `npx --yes --package=node@24 -c 'npm run dev'`.
@@ -43,7 +44,12 @@ customer documents.
 On the Document requests page, create a supplier link, copy it before leaving
 the page, and share it securely. It expires in seven days and can be revoked.
 Suppliers do not need an account. PDF, JPEG and PNG uploads are limited to
-15,000,000 bytes per file. Email delivery is not implemented.
+15,000,000 bytes per file. The portal supports English and German, and
+submissions appear as in-app notifications. An optional Resend invitation
+adapter requires `RESEND_API_KEY` and a verified `RESEND_FROM_EMAIL`; these
+values are server-only. Provider acceptance does not guarantee delivery.
+Production link creation and uploads remain disabled until a real malware
+scanner is implemented.
 
 The local Supabase config requires email confirmation. Hosted Supabase projects
 must separately enable email confirmation and configure the exact callback URL;
@@ -55,9 +61,9 @@ against the database. Workspaces have a 30-day trial and limits of 100 suppliers
 (including archived suppliers) and 10 members (including owners), enforced by
 the database. The planned price is €30 per company per month; billing is not
 implemented and access continues after trial expiry. Existing workspaces receive
-a full trial beginning when the trial migration runs. Invitations,
-supplier import, billing, production email delivery, internationalization, and
-full integration and browser tests are not implemented. Cancellation and
+a full trial beginning when the trial migration runs. Employee invitations,
+supplier import, billing, app-wide internationalization, and comprehensive
+integration and browser tests are not implemented. Cancellation and
 six-month retention deletion are also not implemented. See [testing](docs/TESTING.md),
 [security](docs/SECURITY.md), and [decisions](docs/DECISIONS.md).
 

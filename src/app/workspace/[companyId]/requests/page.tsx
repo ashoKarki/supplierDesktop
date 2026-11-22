@@ -45,6 +45,11 @@ const linkRows = z.array(z.object({
   expires_at: z.string(),
   revoked_at: z.string().nullable(),
 }));
+const notificationRows = z.array(z.object({
+  id: z.string().uuid(),
+  item_id: z.string().uuid(),
+  created_at: z.string(),
+}));
 
 const errorMessages: Record<string, string> = {
   "1": "Check the request details and your permissions.",
@@ -164,7 +169,7 @@ export default async function RequestsPage({
   if (!companyData) notFound();
   const company = companySchema.parse(companyData);
 
-  const [suppliers, requirements, requests, items, versions, events, links] = await Promise.all([
+  const [suppliers, requirements, requests, items, versions, events, links, notifications] = await Promise.all([
     loadSupplierPages(async (after) => {
       let query = client.from("suppliers").select("id, name, archived_at").eq("company_id", company.id).order("id").limit(200);
       if (after) query = query.gt("id", after);
@@ -235,6 +240,15 @@ export default async function RequestsPage({
       }
       return linkRows.parse(data);
     }) : Promise.resolve([]),
+    (async () => {
+      const { data, error } = await client.from("notifications").select("id, item_id, created_at")
+        .eq("company_id", company.id).order("created_at", { ascending: false }).limit(10);
+      if (error) {
+        console.error("Supplier notifications failed", { code: error.code });
+        throw new Error("Unable to load supplier notifications");
+      }
+      return notificationRows.parse(data);
+    })(),
   ]);
   const activeSuppliers = suppliers.filter((supplier) => supplier.archived_at === null);
   const supplierNames = new Map(suppliers.map((supplier) => [supplier.id, supplier.name]));
@@ -245,6 +259,16 @@ export default async function RequestsPage({
     <WorkspaceShell companyName={company.name} companyId={company.id} role={role} currentSection="requests">
       <div className="workspace-heading"><div><p className="eyebrow">DOCUMENT MANAGEMENT</p><h1>Document requests</h1><p>Create a request for a supplier and select its requirements.</p></div></div>
       {search.error && <p role="alert" className="form-alert workspace-alert"><Icon name="warning" /> {errorMessages[search.error] ?? "The action could not be completed."}</p>}
+      {notifications.length > 0 && <section className="directory-card requirement-create" aria-labelledby="submission-notifications">
+        <h2 id="submission-notifications">Recent supplier submissions</h2>
+        <ul>{notifications.map((notification) => {
+          const item = items.find((entry) => entry.id === notification.item_id);
+          return <li key={notification.id}>
+            Supplier submitted {item ? requirementNames.get(item.requirement_id) ?? "a document" : "a document"} on {notification.created_at.slice(0, 10)}.
+            {item && <> <a href={`#request-${item.request_id}`}>View request</a></>}
+          </li>;
+        })}</ul>
+      </section>}
       {can(role, "manage_requests") && (
         <section className="directory-card requirement-create" aria-labelledby="create-request-title">
           <h2 id="create-request-title">Create a request</h2>
@@ -276,7 +300,7 @@ export default async function RequestsPage({
         {requests.length === 0 ? <div className="empty-state"><span className="empty-icon"><Icon name="file" /></span><h3>No requests yet</h3></div> : (
           <ul className="supplier-list">
             {requests.map((request) => (
-              <li className="document-request-row" key={request.id}>
+              <li className="document-request-row" id={`request-${request.id}`} key={request.id}>
                 <div className="supplier-identity"><span className="supplier-avatar"><Icon name="file" /></span><div>
                   <strong>{supplierNames.get(request.supplier_id) ?? "Supplier unavailable"}</strong>
                 </div></div>

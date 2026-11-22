@@ -36,7 +36,7 @@ denial, supplier submission, and link revocation. Its temporary records and
 objects were removed afterward.
 
 With Docker running, start the local stack using `npx supabase start`, then run
-`npm run test:rls` and `npm run test:integration`. The 109 pgTAP checks pass on
+`npm run test:rls` and `npm run test:integration`. The 135 pgTAP checks pass on
 the local Supabase stack and cover a subset of tenant isolation, role
 restrictions, storage, versions, reviews, and supplier-link expiry and
 revocation. The API integration tests create disposable local users, companies,
@@ -47,10 +47,27 @@ remove their test data. The storage integration test checks both exactly
 `127.0.0.1:54321` and obtain its local service key from the CLI without printing
 it. Trial and capacity tests also check 30-day provisioning, role isolation,
 archived suppliers, tenant moves, independent workspaces, concurrent writes at
-both limits, and continued access after trial expiry. Further integration,
-automated end-to-end, accessibility, and coverage-gate testing remain to be
-implemented. The CI workflow includes the available checks but has not yet
-been verified.
+both limits, and continued access after trial expiry. Supplier portal tests
+exercise localized email with a fake provider, failure compensation, scoped
+notifications, and concurrent token throttling. No real email is sent in tests.
+
+Install Chromium once with `npx playwright install chromium`, then run
+`npm run test:e2e` against the local stack. The two browser tests use disposable
+data and a separate app server on port 3100. They cover mobile English/German
+uploads, rejection and resubmission, review, safe invalid-link pages and axe
+checks for serious or critical portal violations. Failed-test traces can contain
+disposable bearer links; do not use this suite with real customer data. The
+app's local no-op scanner does not protect uploads from malware.
+
+`npm run test:coverage` runs unit and integration tests with coverage over
+application source; `npm run test:all` runs the local pipeline. Coverage gates
+require 80% overall and 90% in each of `src/domain/**` and
+`src/lib/security/**` for lines, statements, functions, and branches. The
+global threshold includes the domain and security files. Browser execution is
+not included. The latest overall line coverage was 21.49%, so the coverage
+command and CI are expected to fail until coverage improves. Other pipeline
+checks run before the coverage gate. The CI workflow has not yet been verified
+on GitHub.
 
 Do not treat the current SQL, policies, or registration flow as production-ready
 until the database tests and full security and end-to-end suites have passed.
