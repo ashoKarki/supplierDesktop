@@ -1,9 +1,13 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
 
 const overall = { lines: 80, statements: 80, functions: 80, branches: 80 };
 const critical = { lines: 90, statements: 90, functions: 90, branches: 90 };
 
 export default defineConfig({
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   test: {
     coverage: {
       thresholds: {

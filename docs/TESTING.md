@@ -50,6 +50,10 @@ archived suppliers, tenant moves, independent workspaces, concurrent writes at
 both limits, and continued access after trial expiry. Supplier portal tests
 exercise localized email with a fake provider, failure compensation, scoped
 notifications, and concurrent token throttling. No real email is sent in tests.
+Unit tests also cover supplier-link lookup failures and rate limiting, upload
+validation and storage cleanup, document download authorization, workspace
+and request actions, page permissions, and the verification callback. These
+mocked tests supplement, but do not replace, the database isolation tests.
 
 Install Chromium once with `npx playwright install chromium`, then run
 `npm run test:e2e` against the local stack. The two browser tests use disposable
@@ -64,10 +68,9 @@ application source; `npm run test:all` runs the local pipeline. Coverage gates
 require 80% overall and 90% in each of `src/domain/**` and
 `src/lib/security/**` for lines, statements, functions, and branches. The
 global threshold includes the domain and security files. Browser execution is
-not included. The latest overall line coverage was 21.49%, so the coverage
-command and CI are expected to fail until coverage improves. Other pipeline
-checks run before the coverage gate. The CI workflow has not yet been verified
-on GitHub.
+not included. The latest local run measured 86.48% lines, 84.67% statements,
+81.20% functions, and 81.18% branches. Other pipeline checks run before the
+coverage gate. The updated CI workflow has not yet been verified on GitHub.
 
 Do not treat the current SQL, policies, or registration flow as production-ready
 until the database tests and full security and end-to-end suites have passed.

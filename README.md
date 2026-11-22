@@ -18,8 +18,8 @@ Use Node.js 24 and a running Docker daemon.
 5. To test owner registration, open the verification message in the local
    email testing interface at `http://127.0.0.1:54324` in the same browser.
 6. Install the browser with `npx playwright install chromium`, then run
-   `npm run test:all`. The coverage gate currently fails because overall
-   coverage is below the required 80%; see [testing](docs/TESTING.md).
+   `npm run test:all`. See [testing](docs/TESTING.md) for the coverage gates
+   and other validation details.
 
 If Node.js 24 is not your default, you can start the app with
 `npx --yes --package=node@24 -c 'npm run dev'`.
