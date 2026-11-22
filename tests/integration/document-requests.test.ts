@@ -158,8 +158,85 @@ describe("document requests against local Supabase", () => {
         target_supplier: supplierId,
         requirement_ids: [requirementId],
       });
+
       expect(attempt.error?.code).toBe("42501");
     }
+  });
+
+  it("allows only authorized members to update their company profile", async () => {
+    const updated = await tenantA.client.from("companies").update({ name: "Updated company", country: "DE" })
+      .eq("id", tenantA.companyId).select("id");
+    expect(updated.error).toBeNull();
+    expect(updated.data).toHaveLength(1);
+    for (const client of [viewer, tenantB.client]) {
+      const forbidden = await client.from("companies").update({ name: "Unauthorized change" })
+        .eq("id", tenantA.companyId).select("id");
+      expect(forbidden.error).toBeNull();
+      expect(forbidden.data).toEqual([]);
+    }
+    const company = await tenantA.client.from("companies").select("name, country").eq("id", tenantA.companyId).single();
+    expect(company.error).toBeNull();
+    expect(company.data).toEqual({ name: "Updated company", country: "DE" });
+  });
+
+  it("enforces supplier capacity across concurrent API writes per company", async () => {
+    const seed = await tenantB.client.from("suppliers").insert(
+      Array.from({ length: 99 }, (_, index) => ({
+        company_id: tenantB.companyId,
+        name: `Capacity fixture ${index}`,
+        archived_at: index === 0 ? new Date().toISOString() : null,
+      })),
+    );
+    expect(seed.error).toBeNull();
+    const writes = await Promise.all(["First", "Second"].map((name) =>
+      tenantB.client.from("suppliers").insert({ company_id: tenantB.companyId, name }),
+    ));
+    expect(writes.filter((result) => result.error === null)).toHaveLength(1);
+    expect(writes.filter((result) => result.error?.code === "P1001")).toHaveLength(1);
+    const total = await tenantB.client.from("suppliers").select("id", { count: "exact", head: true });
+    expect(total.count).toBe(100);
+    const otherCompany = await tenantA.client.from("suppliers")
+      .insert({ company_id: tenantA.companyId, name: "Independent capacity" });
+    expect(otherCompany.error).toBeNull();
+  });
+
+  it("enforces the member limit on concurrent privileged membership writes", async () => {
+    const userIds: string[] = [];
+    for (let index = 0; index < 9; index++) {
+      const created = await admin.auth.admin.createUser({
+        email: `capacity-${randomUUID()}@example.test`,
+        password: `Test-${randomUUID()}-only`,
+        email_confirm: true,
+      });
+      if (created.error || !created.data.user) throw new Error("Unable to create capacity test user");
+      userIds.push(created.data.user.id);
+      createdUsers.push(created.data.user.id);
+    }
+    const seeded = await admin.from("company_memberships").insert(userIds.slice(0, 7).map((userId) => ({
+      company_id: tenantA.companyId,
+      user_id: userId,
+      role: "viewer",
+    })));
+    expect(seeded.error).toBeNull();
+    const writes = await Promise.all(userIds.slice(7).map((userId) =>
+      admin.from("company_memberships").insert({ company_id: tenantA.companyId, user_id: userId, role: "viewer" }),
+    ));
+    expect(writes.filter((result) => result.error === null)).toHaveLength(1);
+    expect(writes.filter((result) => result.error?.code === "P1002")).toHaveLength(1);
+    const total = await admin.from("company_memberships").select("user_id", { count: "exact", head: true })
+      .eq("company_id", tenantA.companyId);
+    expect(total.count).toBe(10);
+  });
+
+  it("keeps the workspace accessible after the trial has expired", async () => {
+    const updated = await admin.from("company_trials").update({
+      started_at: "2020-01-01T00:00:00Z",
+      ends_at: "2020-01-31T00:00:00Z",
+    }).eq("company_id", tenantA.companyId);
+    expect(updated.error).toBeNull();
+    const supplier = await tenantA.client.from("suppliers")
+      .insert({ company_id: tenantA.companyId, name: "After trial expiry" });
+    expect(supplier.error).toBeNull();
   });
 
   it("rejects invalid requirement sets without creating a partial request", async () => {

@@ -51,9 +51,14 @@ deploying with confirmation disabled breaks the security requirement.
 
 Initial protected workspace pages and supplier create, rename, search, and
 archive flows are present; only creation and archiving have been smoke-tested
-against the database. Invitations,
+against the database. Workspaces have a 30-day trial and limits of 100 suppliers
+(including archived suppliers) and 10 members (including owners), enforced by
+the database. The planned price is €30 per company per month; billing is not
+implemented and access continues after trial expiry. Existing workspaces receive
+a full trial beginning when the trial migration runs. Invitations,
 supplier import, billing, production email delivery, internationalization, and
-full integration and browser tests are not implemented. See [testing](docs/TESTING.md),
+full integration and browser tests are not implemented. Cancellation and
+six-month retention deletion are also not implemented. See [testing](docs/TESTING.md),
 [security](docs/SECURITY.md), and [decisions](docs/DECISIONS.md).
 
 Phase 2 includes document requests, local-only uploads, private storage,

@@ -14,7 +14,7 @@ export function WorkspaceShell({
   companyName?: string;
   companyId?: string;
   role?: string;
-  currentSection?: "suppliers" | "requirements" | "requests";
+  currentSection?: "suppliers" | "requirements" | "requests" | "settings";
   children: ReactNode;
 }) {
   return (
@@ -46,6 +46,11 @@ export function WorkspaceShell({
           {companyId && (
             <Link className={`sidebar-link${currentSection === "requests" ? " active" : ""}`} href={`/workspace/${companyId}/requests`} aria-current={currentSection === "requests" ? "page" : undefined}>
               <Icon name="file" /> <span>Document requests</span>
+            </Link>
+          )}
+          {companyId && (
+            <Link className={`sidebar-link${currentSection === "settings" ? " active" : ""}`} href={`/workspace/${companyId}/settings`} aria-current={currentSection === "settings" ? "page" : undefined}>
+              <Icon name="building" /> <span>Company profile</span>
             </Link>
           )}
         </nav>

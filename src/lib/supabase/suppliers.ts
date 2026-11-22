@@ -22,6 +22,7 @@ export function supplierRepository(client: SupabaseClient<Database>): SupplierRe
     async create(companyId, name) {
       const { error } = await client.from("suppliers").insert({ company_id: companyId, name });
       if (error) {
+        if (error.code === "P1001") return "limit_reached";
         console.error("Supplier creation failed", { code: error.code });
         throw new Error("Unable to create supplier");
       }

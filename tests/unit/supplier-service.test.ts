@@ -48,4 +48,11 @@ describe("supplier management", () => {
       .toEqual({ ok: false, reason: "not_found" });
     expect(repo.rename).toHaveBeenCalledWith(companyId, supplierId, "New name");
   });
+
+  it("reports the workspace supplier limit", async () => {
+    const repo = repository("owner");
+    repo.create.mockResolvedValue("limit_reached");
+    expect(await manageSupplier({ action: "create", companyId, name: "One more" }, userId, repo))
+      .toEqual({ ok: false, reason: "limit_reached" });
+  });
 });

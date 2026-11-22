@@ -12,14 +12,14 @@ const mutationSchema = z.discriminatedUnion("action", [
 
 export interface SupplierRepository {
   roleFor(userId: string, companyId: string): Promise<Role | null>;
-  create(companyId: string, name: string): Promise<boolean>;
+  create(companyId: string, name: string): Promise<boolean | "limit_reached">;
   rename(companyId: string, supplierId: string, name: string): Promise<boolean>;
   archive(companyId: string, supplierId: string): Promise<boolean>;
 }
 
 export type SupplierResult =
   | { ok: true }
-  | { ok: false; reason: "invalid" | "forbidden" | "not_found" };
+  | { ok: false; reason: "invalid" | "forbidden" | "not_found" | "limit_reached" };
 
 export async function manageSupplier(
   input: unknown,
@@ -32,7 +32,7 @@ export async function manageSupplier(
   const role = await repository.roleFor(userId, mutation.companyId);
   if (!role || !can(role, "manage_suppliers")) return { ok: false, reason: "forbidden" };
 
-  let changed: boolean;
+  let changed: boolean | "limit_reached";
   if (mutation.action === "create") {
     changed = await repository.create(mutation.companyId, mutation.name);
   } else if (mutation.action === "rename") {
@@ -40,5 +40,6 @@ export async function manageSupplier(
   } else {
     changed = await repository.archive(mutation.companyId, mutation.supplierId);
   }
+  if (changed === "limit_reached") return { ok: false, reason: "limit_reached" };
   return changed ? { ok: true } : { ok: false, reason: "not_found" };
 }

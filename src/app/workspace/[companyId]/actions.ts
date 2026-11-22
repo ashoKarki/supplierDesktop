@@ -19,7 +19,7 @@ export async function updateSupplier(form: FormData) {
   const path = `/workspace/${companyId.data}`;
   if (!result.ok) {
     console.warn("Supplier change rejected", { reason: result.reason });
-    redirect(`${path}?error=1`);
+    redirect(`${path}?error=${result.reason}`);
   }
   revalidatePath(path);
   redirect(path);

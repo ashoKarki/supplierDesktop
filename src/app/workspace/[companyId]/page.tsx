@@ -78,10 +78,10 @@ export default async function CompanyWorkspace({
         <div className="summary-card"><span className="summary-icon blue"><Icon name="check" /></span><div><span>Active suppliers</span><strong>{activeCount}</strong></div></div>
         <div className="summary-card"><span className="summary-icon sand"><Icon name="file" /></span><div><span>Archived suppliers</span><strong>{archivedCount}</strong></div></div>
       </div>
-      {search.error && <p role="alert" className="form-alert workspace-alert"><Icon name="warning" /> The supplier change could not be completed.</p>}
+      {search.error && <p role="alert" className="form-alert workspace-alert"><Icon name="warning" /> {search.error === "limit_reached" ? "Your workspace has reached the 100-supplier limit. Archived suppliers count toward this limit." : "The supplier change could not be completed."}</p>}
       {canEdit && (
         <div className="add-supplier-card">
-          <div><h2>Add a supplier</h2><p>Start by adding a name to your directory.</p></div>
+          <div><h2>Add a supplier</h2><p>{supplierData.length} of 100 suppliers used, including archived suppliers.</p></div>
           <form action={updateSupplier} className="add-supplier-form">
             <input type="hidden" name="companyId" value={company.id} />
             <input type="hidden" name="action" value="create" />

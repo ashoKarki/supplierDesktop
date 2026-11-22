@@ -36,7 +36,7 @@ denial, supplier submission, and link revocation. Its temporary records and
 objects were removed afterward.
 
 With Docker running, start the local stack using `npx supabase start`, then run
-`npm run test:rls` and `npm run test:integration`. The 95 pgTAP checks pass on
+`npm run test:rls` and `npm run test:integration`. The 109 pgTAP checks pass on
 the local Supabase stack and cover a subset of tenant isolation, role
 restrictions, storage, versions, reviews, and supplier-link expiry and
 revocation. The API integration tests create disposable local users, companies,
@@ -45,7 +45,9 @@ cross-tenant access, reviews, version replacement, and supplier links, then
 remove their test data. The storage integration test checks both exactly
 15,000,000 bytes and one byte over the limit. They require the local Supabase stack at
 `127.0.0.1:54321` and obtain its local service key from the CLI without printing
-it. Further integration,
+it. Trial and capacity tests also check 30-day provisioning, role isolation,
+archived suppliers, tenant moves, independent workspaces, concurrent writes at
+both limits, and continued access after trial expiry. Further integration,
 automated end-to-end, accessibility, and coverage-gate testing remain to be
 implemented. The CI workflow includes the available checks but has not yet
 been verified.

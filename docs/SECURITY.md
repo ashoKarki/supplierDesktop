@@ -22,8 +22,12 @@ appropriate auth rate limits, and production email delivery.
 
 Only the Supabase anon/publishable key belongs in application configuration.
 Never put a service-role key in the browser or a `NEXT_PUBLIC_` variable.
-Membership mutations, invitations, subscription enforcement, retention, and
-company deletion are not yet implemented.
+Membership mutations, invitations, cancellation, retention, and company
+deletion are not yet implemented. Database triggers serialize company-level
+supplier and membership capacity checks, including privileged inserts and
+tenant moves. Trial expiry does not restrict access while billing is deferred.
+The trial record is visible only to the company's owner and administrators;
+clients cannot modify it. Payment processing is not implemented.
 Tenant isolation, role escalation, and cross-tenant storage and API access
 require comprehensive database, integration, and end-to-end security tests.
 

@@ -36,3 +36,13 @@
 - Supplier links expire after seven days, can be revoked, and can be reused for
   the same request until expiry or revocation. They are manually shared; email
   delivery and rate limiting remain unimplemented.
+- Each company receives a 30-day trial; existing workspaces receive a full trial
+  starting when the trial migration runs. The planned price is €30 per company
+  per month, but payment processing is deferred and access continues after
+  trial expiration. No paid subscription or payment is represented.
+- The company limits are 100 suppliers, including archived suppliers, and 10
+  members, including owners. Pending invitations are not yet implemented and
+  do not reserve seats; invitation acceptance must honor the member limit.
+- A cancelled workspace should be suspended with an owner reactivation path,
+  and deleted after six months. Cancellation, reactivation, storage cleanup,
+  and scheduled deletion are not yet implemented.

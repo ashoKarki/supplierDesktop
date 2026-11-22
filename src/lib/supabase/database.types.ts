@@ -6,6 +6,12 @@ type Company = {
   created_at: string;
 };
 
+type CompanyTrial = {
+  company_id: string;
+  started_at: string;
+  ends_at: string;
+};
+
 type Profile = {
   user_id: string;
   name: string;
@@ -96,6 +102,19 @@ type SupplierUploadLink = {
 export type Database = {
   public: {
     Tables: {
+      company_trials: {
+        Row: CompanyTrial;
+        ComputedFields: never;
+        Insert: Pick<CompanyTrial, "company_id"> & Partial<Pick<CompanyTrial, "started_at" | "ends_at">>;
+        Update: Partial<CompanyTrial>;
+        Relationships: [{
+          foreignKeyName: "company_trials_company_id_fkey";
+          columns: ["company_id"];
+          isOneToOne: true;
+          referencedRelation: "companies";
+          referencedColumns: ["id"];
+        }];
+      };
       companies: {
         Row: Company;
         ComputedFields: never;
