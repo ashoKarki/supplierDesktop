@@ -1,16 +1,20 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { isLocalNoopScannerAllowed } from "@/domain/local-scanner";
 import { getServerEnvironment } from "@/lib/env";
+import { resendEmailProvider } from "@/lib/email/resend";
 import { can } from "@/lib/security/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/supabase/require-user";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { supplierRepository } from "@/lib/supabase/suppliers";
 import { createDocumentRequest } from "@/services/requests";
 import { storeDocument } from "@/services/document-uploads";
+import { sendSupplierInvitation } from "@/services/supplier-invitations";
 
 export async function addDocumentRequest(form: FormData) {
   const companyId = z.string().uuid().safeParse(form.get("companyId"));
@@ -118,6 +122,7 @@ export async function reviewDocument(form: FormData) {
 }
 
 export type SupplierLinkState = { url?: string; error?: string };
+export type SupplierInvitationState = { sent?: boolean; error?: string };
 
 export async function createSupplierLink(_previous: SupplierLinkState, form: FormData): Promise<SupplierLinkState> {
   const fields = z.object({ companyId: z.string().uuid(), requestId: z.string().uuid() })
@@ -148,6 +153,67 @@ export async function createSupplierLink(_previous: SupplierLinkState, form: For
   }
   revalidatePath(`/workspace/${fields.data.companyId}/requests`);
   return { url: `${getServerEnvironment().SITE_URL}/supplier/upload/${token}` };
+}
+
+export async function emailSupplierLink(
+  _previous: SupplierInvitationState,
+  form: FormData,
+): Promise<SupplierInvitationState> {
+  const client = await createSupabaseServerClient();
+  const user = await requireUser(client);
+  const mailSettings = z.object({
+    apiKey: z.string().min(1),
+    from: z.string().email(),
+  }).safeParse({ apiKey: process.env.RESEND_API_KEY, from: process.env.RESEND_FROM_EMAIL });
+  if (!mailSettings.success || !isLocalNoopScannerAllowed({
+    nodeEnv: process.env.NODE_ENV,
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    scanner: process.env.DOCUMENT_SCANNER,
+  }) || !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    console.error("Supplier invitation disabled: email or uploads are not configured");
+    return { error: "Email delivery or document uploads are not configured." };
+  }
+  const result = await sendSupplierInvitation(Object.fromEntries(form.entries()), getServerEnvironment().SITE_URL, {
+    async authorized(companyId) {
+      const role = await supplierRepository(client).roleFor(user.id, companyId);
+      if (!role || !can(role, "manage_requests")) return null;
+      const { data, error } = await client.from("companies").select("name").eq("id", companyId).maybeSingle();
+      if (error) {
+        console.error("Supplier invitation workspace lookup failed", { code: error.code });
+        throw new Error("Unable to load workspace");
+      }
+      return data?.name ?? null;
+    },
+    async issue(companyId, requestId) {
+      const { data, error } = await client.rpc("create_supplier_upload_link", {
+        target_company: companyId, target_request: requestId,
+      });
+      if (error || !data) {
+        console.error("Supplier invitation link creation failed", { code: error?.code });
+        throw new Error("Unable to create supplier invitation");
+      }
+      return data;
+    },
+    async revoke(companyId, token) {
+      const { error } = await createSupabaseServiceClient().rpc("revoke_supplier_link_hash", {
+        target_company: companyId,
+        target_hash: createHash("sha256").update(token).digest("hex"),
+      });
+      if (error) {
+        console.error("Supplier invitation link revocation failed", { code: error.code });
+        throw new Error("Unable to revoke an undelivered invitation");
+      }
+    },
+    email: resendEmailProvider(mailSettings.data.apiKey, mailSettings.data.from),
+  });
+  if (!result.ok) {
+    console.warn("Supplier invitation rejected", { reason: result.reason });
+    return { error: result.reason === "delivery"
+      ? "Delivery could not be confirmed. The link was revoked; try again."
+      : "Check the recipient and your permissions." };
+  }
+  revalidatePath(`/workspace/${z.string().uuid().parse(form.get("companyId"))}/requests`);
+  return { sent: true };
 }
 
 export async function revokeSupplierLink(form: FormData) {

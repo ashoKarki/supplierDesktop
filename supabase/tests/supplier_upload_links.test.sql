@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(29);
 
 insert into auth.users (id, aud, role, email, email_confirmed_at)
 values ('40000000-0000-0000-0000-000000000001', 'authenticated', 'authenticated', 'link-owner@example.test', now()),
@@ -52,6 +52,22 @@ select lives_ok(
  'supplier can upload to its request');
 reset role;
 select is((select submitted_by from public.document_versions where id = '46000000-0000-0000-0000-000000000001'), null::uuid, 'supplier upload is not attributed to an employee');
+select is((select count(*) from public.notifications where version_id = '46000000-0000-0000-0000-000000000001'),
+  1::bigint, 'supplier upload creates one manufacturer notification');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-000000000002', true);
+select is((select count(*) from public.notifications), 1::bigint, 'workspace members can view their supplier notifications');
+select throws_ok($$update public.notifications set kind = 'other'$$,
+  '42501', null, 'workspace members cannot modify notifications');
+select throws_ok($$delete from public.notifications$$,
+  '42501', null, 'workspace members cannot delete notifications');
+select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-000000000003', true);
+select is((select count(*) from public.notifications), 0::bigint, 'another company cannot see the notification');
+select throws_ok($$insert into public.notifications (company_id, item_id, version_id, kind)
+  values ('41000000-0000-0000-0000-000000000001', '45000000-0000-0000-0000-000000000001',
+  '46000000-0000-0000-0000-000000000001', 'supplier_document_submitted')$$,
+  '42501', null, 'clients cannot forge notifications');
+reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-000000000001', true);
 select lives_ok($$select public.revoke_supplier_upload_link('41000000-0000-0000-0000-000000000001', (select id from public.supplier_upload_links limit 1))$$, 'owner revokes link');
@@ -73,7 +89,28 @@ select throws_ok(
  $$select public.record_supplier_document_upload('41000000-0000-0000-0000-000000000001','45000000-0000-0000-0000-000000000001','46000000-0000-0000-0000-000000000001','file.pdf','application/pdf',6,null,encode(extensions.digest(current_setting('test.expired_token'),'sha256'),'hex'))$$,
  '42501', null, 'expired token cannot submit');
 reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-000000000001', true);
+select set_config('test.failed_delivery_token', public.create_supplier_upload_link('41000000-0000-0000-0000-000000000001', '44000000-0000-0000-0000-000000000001'), true);
+select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-000000000003', true);
+select throws_ok($$select public.revoke_supplier_link_hash('41000000-0000-0000-0000-000000000001',
+  encode(extensions.digest(current_setting('test.failed_delivery_token'),'sha256'),'hex'))$$,
+  '42501', null, 'authenticated users cannot invoke delivery compensation');
+reset role;
+set local role service_role;
+select throws_ok($$select public.revoke_supplier_link_hash('41000000-0000-0000-0000-000000000002',
+  encode(extensions.digest(current_setting('test.failed_delivery_token'),'sha256'),'hex'))$$,
+  '22023', null, 'delivery compensation is scoped to the company');
+select lives_ok($$select public.revoke_supplier_link_hash('41000000-0000-0000-0000-000000000001',
+  encode(extensions.digest(current_setting('test.failed_delivery_token'),'sha256'),'hex'))$$,
+  'trusted service can revoke a token when delivery fails');
+select is((select count(*) from public.resolve_supplier_upload_link(
+  encode(extensions.digest(current_setting('test.failed_delivery_token'),'sha256'),'hex'))), 0::bigint,
+  'revoked delivery token no longer resolves');
+reset role;
 set local role anon;
+select throws_ok($$select public.revoke_supplier_link_hash('41000000-0000-0000-0000-000000000001', repeat('0',64))$$,
+  '42501', null, 'anonymous users cannot revoke delivery tokens');
 select throws_ok($$select public.create_supplier_upload_link('41000000-0000-0000-0000-000000000001','44000000-0000-0000-0000-000000000001')$$, '42501', null, 'anonymous users cannot issue links');
 select throws_ok(
  $$select public.record_supplier_document_upload('41000000-0000-0000-0000-000000000001','45000000-0000-0000-0000-000000000001','46000000-0000-0000-0000-000000000001','file.pdf','application/pdf',6,null,repeat('0',64))$$,

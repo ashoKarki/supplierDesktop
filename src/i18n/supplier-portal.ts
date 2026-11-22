@@ -1,0 +1,68 @@
+export const portalMessages = {
+  en: {
+    eyebrow: "SUPPLIER DOCUMENT REQUEST",
+    title: "Upload your documents",
+    introduction: "{company} has requested documents from {supplier}. No account is required.",
+    expires: "This link expires on {date} (UTC).",
+    uploaded: "Document submitted for review.",
+    requestedDocuments: "Requested documents",
+    documentRequirement: "Document requirement",
+    reason: "Reason: {reason}",
+    chooseDocument: "Choose a document",
+    fileHelp: "PDF, JPEG or PNG; maximum 15 MB.",
+    expiryDate: "Expiry date (optional)",
+    submitDocument: "Submit document",
+    awaitingReview: "This document is awaiting review.",
+    errors: {
+      upload: "Choose a valid PDF, JPEG or PNG of at most 15 MB and a valid expiry date.",
+      state: "This document is no longer accepting submissions, or this link has expired.",
+      scanner: "Uploads are unavailable because a scanner is not configured.",
+      storage: "Document storage is unavailable or the upload could not be completed.",
+      other: "The upload could not be completed.",
+    },
+    status: {
+      requested: "Requested",
+      submitted: "Submitted",
+      under_review: "Under review",
+      approved: "Approved",
+      rejected: "Rejected",
+      expired: "Expired",
+      cancelled: "Cancelled",
+    },
+  },
+  de: {
+    eyebrow: "DOKUMENTENANFRAGE FÜR LIEFERANTEN",
+    title: "Laden Sie Ihre Dokumente hoch",
+    introduction: "{company} hat Dokumente von {supplier} angefordert. Sie benötigen kein Konto.",
+    expires: "Dieser Link läuft am {date} ab (UTC).",
+    uploaded: "Das Dokument wurde zur Prüfung eingereicht.",
+    requestedDocuments: "Angeforderte Dokumente",
+    documentRequirement: "Dokumentenanforderung",
+    reason: "Grund: {reason}",
+    chooseDocument: "Dokument auswählen",
+    fileHelp: "PDF, JPEG oder PNG; maximal 15 MB.",
+    expiryDate: "Ablaufdatum (optional)",
+    submitDocument: "Dokument einreichen",
+    awaitingReview: "Dieses Dokument wartet auf Prüfung.",
+    errors: {
+      upload: "Wählen Sie eine gültige PDF-, JPEG- oder PNG-Datei mit maximal 15 MB und ein gültiges Ablaufdatum.",
+      state: "Für dieses Dokument sind keine Einreichungen mehr möglich oder der Link ist abgelaufen.",
+      scanner: "Uploads sind nicht verfügbar, da kein Scanner konfiguriert ist.",
+      storage: "Der Dokumentspeicher ist nicht verfügbar oder der Upload konnte nicht abgeschlossen werden.",
+      other: "Der Upload konnte nicht abgeschlossen werden.",
+    },
+    status: {
+      requested: "Angefordert",
+      submitted: "Eingereicht",
+      under_review: "In Prüfung",
+      approved: "Freigegeben",
+      rejected: "Abgelehnt",
+      expired: "Abgelaufen",
+      cancelled: "Storniert",
+    },
+  },
+};
+
+export function portalLocale(value: unknown): "en" | "de" {
+  return value === "de" ? "de" : "en";
+}

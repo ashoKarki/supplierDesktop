@@ -99,9 +99,51 @@ type SupplierUploadLink = {
   created_at: string;
 };
 
+type SupplierPortalRateLimit = {
+  key_hash: string;
+  kind: string;
+  request_count: number;
+  window_started_at: string;
+};
+
+type Notification = {
+  id: string;
+  company_id: string;
+  item_id: string;
+  version_id: string;
+  kind: string;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
+      notifications: {
+        Row: Notification;
+        ComputedFields: never;
+        Insert: Pick<Notification, "company_id" | "item_id" | "version_id" | "kind"> & Partial<Pick<Notification, "id" | "created_at">>;
+        Update: Partial<Notification>;
+        Relationships: [{
+          foreignKeyName: "notifications_company_id_fkey";
+          columns: ["company_id"];
+          isOneToOne: false;
+          referencedRelation: "companies";
+          referencedColumns: ["id"];
+        }, {
+          foreignKeyName: "notifications_company_id_item_id_version_id_fkey";
+          columns: ["company_id", "item_id", "version_id"];
+          isOneToOne: false;
+          referencedRelation: "document_versions";
+          referencedColumns: ["company_id", "item_id", "id"];
+        }];
+      };
+      supplier_portal_rate_limits: {
+        Row: SupplierPortalRateLimit;
+        ComputedFields: never;
+        Insert: SupplierPortalRateLimit;
+        Update: Partial<SupplierPortalRateLimit>;
+        Relationships: [];
+      };
       company_trials: {
         Row: CompanyTrial;
         ComputedFields: never;
@@ -285,6 +327,14 @@ export type Database = {
     };
     Views: Record<never, never>;
     Functions: {
+      revoke_supplier_link_hash: {
+        Args: { target_company: string; target_hash: string };
+        Returns: undefined;
+      };
+      consume_supplier_portal_limit: {
+        Args: { ip_key: string; token_key: string | null };
+        Returns: boolean;
+      };
       _store_document_version: {
         Args: {
           target_company: string;

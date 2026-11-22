@@ -1,7 +1,7 @@
 # Security status
 
 This is not a production-ready security design or a fully verified isolation
-boundary. The current migrations and 95 pgTAP checks passed on the local
+boundary. The current migrations and 135 pgTAP checks passed on the local
 Supabase stack; they cover only a subset of the required security cases.
 
 The initial schema separates company-owned suppliers and memberships with
@@ -55,12 +55,30 @@ Supplier links are seven-day bearer credentials, stored as hashes and
 revocable. They permit only submissions for their specific request, and the
 database rechecks the link on upload. The URL itself is a secret: protect it in
 transit, share it securely, and configure all application, proxy, CDN,
-analytics, and error logs to redact its path before any deployment. Development
-server request logs currently contain the URL. Supplier page responses use
+analytics, and error logs to redact its path before any deployment. Next.js
+development request logging is disabled for supplier upload paths, but other
+logs can still contain the URL. Supplier page responses use
 no-store and an origin-only referrer policy; these do not prevent browser
 history, screenshots, recipient forwarding, or server logs from exposing links.
-Rate limits, abuse monitoring, email delivery, and a production token-leak
-review are still required.
+The application limits requests to 60 per IP and 30 per token in five minutes,
+using database-backed counters. IP addresses are HMACed with a server-only
+secret; counter cleanup is opportunistic after one hour, not a guaranteed
+retention deadline. Local development uses a single shared identity. Production
+requires Vercel's trusted `x-vercel-forwarded-for` header and a random
+`SUPPLIER_PORTAL_RATE_SECRET` of at least 32 characters; missing configuration
+and other hosting environments fail closed. A trusted proxy in front of Vercel
+must preserve the integrity of this header. These application checks occur
+after request bodies are parsed and do not replace edge-level abuse protection.
+Provider, CDN, proxy, app and browser logs may still expose bearer links; token
+redaction, abuse monitoring, and a production token-leak review are required.
+
+Owners and authorized staff can request Resend delivery of an invitation with
+server-only credentials. Provider acceptance does not prove delivery. A known
+failure or timeout revokes the token, but a process crash can leave an
+untracked token or an ambiguously delivered message; there is no durable
+outbox or retry mechanism. Invitation sending still needs abuse controls.
+Supplier submissions create tenant-scoped in-app notifications; email or push
+alerts to manufacturers are not implemented.
 
 Storage and database writes are not a single transaction. Known failed
 submissions attempt to remove their objects; an ambiguous database outcome is

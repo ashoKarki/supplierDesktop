@@ -32,10 +32,21 @@
   and reviewers, and a clearly marked no-op scanner for local development.
   PDF, JPEG and PNG are accepted, with a 15,000,000-byte limit. The no-op
   scanner is available only on the local development stack; no production
-  malware scanner is implemented.
+  malware scanner is implemented. The production scanner has not yet been
+  selected.
 - Supplier links expire after seven days, can be revoked, and can be reused for
-  the same request until expiry or revocation. They are manually shared; email
-  delivery and rate limiting remain unimplemented.
+  the same request until expiry or revocation. Final-submission locking is not
+  implemented. Links can be shared manually or emailed through Resend; email
+  processing is not a durable delivery queue.
+- The supplier portal supports English and German. Invalid, expired and revoked
+  links show the same bilingual message. The rest of the app is not yet localized.
+- Supplier portal requests are limited to 60 per IP and 30 per token in a
+  five-minute fixed window. The production IP identity is supported only on
+  Vercel using its `x-vercel-forwarded-for` header; other production hosting
+  fails closed until an appropriate trusted-proxy implementation is added. The
+  intended host is not Vercel, but its platform and proxy are not yet specified.
+- Supplier submissions generate a company-scoped in-app notification per
+  version. Manufacturer email or push notifications are not yet implemented.
 - Each company receives a 30-day trial; existing workspaces receive a full trial
   starting when the trial migration runs. The planned price is €30 per company
   per month, but payment processing is deferred and access continues after

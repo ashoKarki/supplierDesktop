@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { MAX_DOCUMENT_BYTES } from "../../src/domain/document-upload";
 import type { Database } from "../../src/lib/supabase/database.types";
+import type { EmailMessage } from "../../src/lib/email/provider";
+import { sendSupplierInvitation } from "../../src/services/supplier-invitations";
 
 const localStatusSchema = z.object({
   API_URL: z.literal("http://127.0.0.1:54321"),
@@ -23,6 +25,7 @@ describe("document requests against local Supabase", () => {
   const createdUsers: string[] = [];
   const createdCompanies: string[] = [];
   const uploadedObjects: string[] = [];
+  const rateLimitKeys: string[] = [];
   let admin: SupabaseClient<Database>;
   let tenantA: TestTenant;
   let tenantB: TestTenant;
@@ -99,6 +102,17 @@ describe("document requests against local Supabase", () => {
   afterAll(async () => {
     if (!admin) return;
     const failures: string[] = [];
+    if (rateLimitKeys.length) {
+      try {
+        execFileSync("docker", [
+          "exec", "supabase_db_supplierDesktop", "psql", "-U", "postgres", "-d", "postgres",
+          "-v", "ON_ERROR_STOP=1", "-c",
+          `delete from public.supplier_portal_rate_limits where key_hash in (${rateLimitKeys.map((key) => `'${key}'`).join(",")})`,
+        ], { stdio: ["ignore", "ignore", "pipe"] });
+      } catch {
+        failures.push("rate limit fixtures");
+      }
+    }
     if (uploadedObjects.length) {
       const { error } = await admin.storage.from("supplierdesk-documents").remove(uploadedObjects);
       if (error) failures.push(`objects: ${error.name}`);
@@ -198,6 +212,18 @@ describe("document requests against local Supabase", () => {
     const otherCompany = await tenantA.client.from("suppliers")
       .insert({ company_id: tenantA.companyId, name: "Independent capacity" });
     expect(otherCompany.error).toBeNull();
+  });
+
+  it("enforces the supplier-token rate limit across concurrent API calls", async () => {
+    const ipKey = randomBytes(32).toString("hex");
+    const tokenKey = randomBytes(32).toString("hex");
+    rateLimitKeys.push(ipKey, tokenKey);
+    const results = await Promise.all(Array.from({ length: 35 }, () =>
+      admin.rpc("consume_supplier_portal_limit", { ip_key: ipKey, token_key: tokenKey }),
+    ));
+    expect(results.filter((result) => result.error)).toEqual([]);
+    expect(results.filter((result) => result.data === true)).toHaveLength(30);
+    expect(results.filter((result) => result.data === false)).toHaveLength(5);
   });
 
   it("enforces the member limit on concurrent privileged membership writes", async () => {
@@ -378,6 +404,7 @@ describe("document requests against local Supabase", () => {
       target_supplier: supplierId,
       requirement_ids: [requirementId],
     });
+
     const unrelated = await tenantA.client.rpc("create_document_request", {
       target_company: tenantA.companyId,
       target_supplier: supplierId,
@@ -431,6 +458,17 @@ describe("document requests against local Supabase", () => {
     expect(wrongItem.error?.code).toBe("42501");
     const uploaded = await admin.rpc("record_supplier_document_upload", details);
     expect(uploaded.error).toBeNull();
+    const notifications = await tenantA.client.from("notifications").select("item_id, version_id, kind")
+      .eq("version_id", versionId);
+    expect(notifications.error).toBeNull();
+    expect(notifications.data).toEqual([{
+      item_id: allowedItem.id,
+      version_id: versionId,
+      kind: "supplier_document_submitted",
+    }]);
+    const otherNotifications = await tenantB.client.from("notifications").select("id").eq("version_id", versionId);
+    expect(otherNotifications.error).toBeNull();
+    expect(otherNotifications.data).toEqual([]);
     const versions = await tenantA.client.from("document_versions").select("submitted_by").eq("id", versionId).single();
     expect(versions.error).toBeNull();
     expect(versions.data).toEqual({ submitted_by: null });
@@ -446,6 +484,65 @@ describe("document requests against local Supabase", () => {
     expect(revoked.data).toEqual([]);
     const afterRevoke = await admin.rpc("record_supplier_document_upload", details);
     expect(afterRevoke.error?.code).toBe("42501");
+  });
+
+  it("sends a localized invitation through a fake provider and revokes an undelivered link", async () => {
+    const request = await tenantA.client.rpc("create_document_request", {
+      target_company: tenantA.companyId,
+      target_supplier: supplierId,
+      requirement_ids: [requirementId],
+    });
+    if (request.error || !request.data) throw new Error("Unable to create invitation request");
+    const sent: EmailMessage[] = [];
+    let issuedToken = "";
+    const deps = {
+      async authorized(companyId: string) {
+        const { data, error } = await tenantA.client.from("companies").select("name").eq("id", companyId).maybeSingle();
+        if (error) throw new Error("Unable to load fixture company");
+        return data?.name ?? null;
+      },
+      async issue(companyId: string, requestId: string) {
+        const { data, error } = await tenantA.client.rpc("create_supplier_upload_link", {
+          target_company: companyId, target_request: requestId,
+        });
+        if (error || !data) throw new Error("Unable to issue fixture link");
+        issuedToken = data;
+        return data;
+      },
+      async revoke(companyId: string, token: string) {
+        const { error } = await admin.rpc("revoke_supplier_link_hash", {
+          target_company: companyId,
+          target_hash: createHash("sha256").update(token).digest("hex"),
+        });
+        if (error) throw new Error("Unable to revoke fixture link");
+      },
+      email: { async send(message: EmailMessage) { sent.push(message); } },
+    };
+    const input = {
+      companyId: tenantA.companyId, requestId: request.data,
+      email: "supplier@example.test", language: "de",
+    };
+    expect(await sendSupplierInvitation({ ...input, companyId: tenantB.companyId }, "https://supplierdesk.example", deps))
+      .toEqual({ ok: false, reason: "forbidden" });
+    expect(sent).toEqual([]);
+    expect(await sendSupplierInvitation(input, "https://supplierdesk.example", deps)).toEqual({ ok: true });
+    expect(sent[0]?.to).toBe("supplier@example.test");
+    expect(sent[0]?.text).toContain(`/supplier/upload/${issuedToken}?lang=de`);
+    const resolved = await admin.rpc("resolve_supplier_upload_link", {
+      link_hash: createHash("sha256").update(issuedToken).digest("hex"),
+    });
+    expect(resolved.data?.map(({ company_id, request_id }) => ({ company_id, request_id })))
+      .toEqual([{ company_id: tenantA.companyId, request_id: request.data }]);
+
+    const failed = await sendSupplierInvitation(input, "https://supplierdesk.example", {
+      ...deps, email: { async send() { throw new Error("Simulated delivery failure"); } },
+    });
+    expect(failed).toEqual({ ok: false, reason: "delivery" });
+    const revoked = await admin.rpc("resolve_supplier_upload_link", {
+      link_hash: createHash("sha256").update(issuedToken).digest("hex"),
+    });
+    expect(revoked.error).toBeNull();
+    expect(revoked.data).toEqual([]);
   });
 
   it("enforces the exact 15 MB limit in private storage", async () => {

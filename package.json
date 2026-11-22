@@ -10,21 +10,28 @@
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
-    "test:rls": "supabase test db"
+    "test:rls": "supabase test db",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run tests/unit tests/integration --coverage --coverage.include='src/**/*.{ts,tsx}'",
+    "test:all": "npm run lint && npm run typecheck && npm run test:rls && npm run build && npm run test:e2e && npm run test:coverage"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.2",
     "next": "16.4.6",
+    "next-intl": "^4.15.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "supabase": "^3.2.0",
