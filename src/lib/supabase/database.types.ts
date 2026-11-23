@@ -1,8 +1,11 @@
+type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 type Company = {
   id: string;
   name: string;
   country: string;
   business_details: string;
+  time_zone: string;
   created_at: string;
 };
 
@@ -33,6 +36,7 @@ type Supplier = {
   id: string;
   company_id: string;
   name: string;
+  contact_email: string | null;
   archived_at: string | null;
   created_at: string;
 };
@@ -49,6 +53,7 @@ type DocumentRequest = {
   id: string;
   company_id: string;
   supplier_id: string;
+  deadline: string | null;
   created_at: string;
 };
 
@@ -160,7 +165,7 @@ export type Database = {
       companies: {
         Row: Company;
         ComputedFields: never;
-        Insert: Omit<Company, "id" | "created_at"> & Partial<Pick<Company, "id" | "created_at">>;
+        Insert: Omit<Company, "id" | "created_at" | "time_zone"> & Partial<Pick<Company, "id" | "created_at" | "time_zone">>;
         Update: Partial<Company>;
         Relationships: [];
       };
@@ -226,7 +231,7 @@ export type Database = {
       document_requests: {
         Row: DocumentRequest;
         ComputedFields: never;
-        Insert: Pick<DocumentRequest, "company_id" | "supplier_id"> & Partial<Pick<DocumentRequest, "id" | "created_at">>;
+        Insert: Pick<DocumentRequest, "company_id" | "supplier_id"> & Partial<Pick<DocumentRequest, "id" | "created_at" | "deadline">>;
         Update: Partial<DocumentRequest>;
         Relationships: [{
           foreignKeyName: "document_requests_company_id_fkey";
@@ -327,6 +332,45 @@ export type Database = {
     };
     Views: Record<never, never>;
     Functions: {
+      workspace_document_snapshot: {
+        Args: { target_company: string };
+        Returns: Json;
+      };
+      workspace_report_page: {
+        Args: { target_company: string; requested_kind: string; page_size: number; page_offset: number };
+        Returns: Json;
+      };
+      enqueue_due_reminders: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
+      claim_due_reminders: {
+        Args: { batch_size?: number };
+        Returns: {
+          id: string;
+          company_id: string;
+          request_id: string;
+          item_id: string | null;
+          recipient_email: string;
+          recipient_kind: string;
+          reminder_kind: string;
+          scheduled_on: string;
+          attempt: number;
+          company_name: string;
+          supplier_name: string;
+          deadline: string | null;
+          requirement_name: string | null;
+          expires_on: string | null;
+        }[];
+      };
+      complete_reminder_delivery: {
+        Args: { delivery_id: string; outcome: string; failure_reason?: string | null };
+        Returns: undefined;
+      };
+      create_reminder_supplier_upload_link: {
+        Args: { delivery_id: string; token: string };
+        Returns: string | null;
+      };
       revoke_supplier_link_hash: {
         Args: { target_company: string; target_hash: string };
         Returns: undefined;
@@ -349,7 +393,7 @@ export type Database = {
         Returns: string;
       };
       create_document_request: {
-        Args: { target_company: string; target_supplier: string; requirement_ids: string[] };
+        Args: { target_company: string; target_supplier: string; requirement_ids: string[]; submission_deadline?: string | null };
         Returns: string;
       };
       create_owner_workspace: {

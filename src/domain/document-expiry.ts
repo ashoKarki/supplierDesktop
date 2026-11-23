@@ -8,7 +8,7 @@ export type ExpiryStatus =
   | "within_90_days"
   | "valid";
 
-export function classifyExpiry(expiryDate: string, now: Date, timeZone: string): ExpiryStatus {
+export function daysUntilDate(expiryDate: string, now: Date, timeZone: string): number {
   const expiry = parseCalendarDate(expiryDate);
   if (!Number.isFinite(now.getTime())) throw new RangeError("Invalid clock");
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -24,7 +24,11 @@ export function classifyExpiry(expiryDate: string, now: Date, timeZone: string):
     return Number(value);
   };
   const today = Date.UTC(part("year"), part("month") - 1, part("day"));
-  const days = (Date.UTC(expiry.year, expiry.month - 1, expiry.day) - today) / 86_400_000;
+  return (Date.UTC(expiry.year, expiry.month - 1, expiry.day) - today) / 86_400_000;
+}
+
+export function classifyExpiry(expiryDate: string, now: Date, timeZone: string): ExpiryStatus {
+  const days = daysUntilDate(expiryDate, now, timeZone);
   if (days < 0) return "expired";
   if (days <= 7) return "within_7_days";
   if (days <= 30) return "within_30_days";

@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(19);
 
 insert into auth.users (id, aud, role, email, email_confirmed_at, raw_user_meta_data)
 values
@@ -25,7 +25,15 @@ select lives_ok(
  'owner creates a request and its items together'
 );
 select is((select count(*) from public.document_requests), 1::bigint, 'one request was created');
+select is((select deadline from public.document_requests), null::date, 'existing callers can omit a deadline');
 select is((select count(*) from public.document_request_items), 2::bigint, 'both request items were created');
+select is(jsonb_array_length(public.workspace_document_snapshot(current_setting('test.workflow_a')::uuid)->'items'), 2,
+  'snapshot contains the company request items');
+select throws_ok(
+ $$select public.create_document_request(current_setting('test.workflow_a')::uuid, current_setting('test.workflow_supplier')::uuid, array[current_setting('test.workflow_requirement')::uuid], 'infinity'::date)$$,
+ '23514', null, 'non-calendar deadlines are rejected'
+);
+select is((select count(*) from public.document_requests), 1::bigint, 'invalid deadline leaves no partial request');
 select throws_ok(
  $$select public.create_document_request(current_setting('test.workflow_a')::uuid, current_setting('test.workflow_supplier')::uuid, array[]::uuid[])$$,
  '22023', null, 'empty request is rejected'
@@ -46,6 +54,10 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000002', true);
 select set_config('test.workflow_b', public.create_owner_workspace()::text, true);
 select throws_ok(
+ $$select public.workspace_document_snapshot(current_setting('test.workflow_a')::uuid)$$,
+ '42501', null, 'another company cannot load the workspace snapshot'
+);
+select throws_ok(
  $$select public.create_document_request(current_setting('test.workflow_a')::uuid, current_setting('test.workflow_supplier')::uuid, array[current_setting('test.workflow_requirement')::uuid])$$,
  '42501', null, 'another company cannot create requests for company A'
 );
@@ -58,12 +70,18 @@ insert into public.company_memberships (company_id, user_id, role)
 values (current_setting('test.workflow_a')::uuid, '20000000-0000-0000-0000-000000000003', 'viewer');
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000003', true);
+select is(jsonb_array_length(public.workspace_document_snapshot(current_setting('test.workflow_a')::uuid)->'items'), 2,
+  'viewer can read a workspace snapshot');
 select throws_ok(
  $$select public.create_document_request(current_setting('test.workflow_a')::uuid, current_setting('test.workflow_supplier')::uuid, array[current_setting('test.workflow_requirement')::uuid])$$,
  '42501', null, 'viewer cannot create requests'
 );
 reset role;
 set local role anon;
+select throws_ok(
+ $$select public.workspace_document_snapshot(current_setting('test.workflow_a')::uuid)$$,
+ '42501', null, 'anonymous users cannot load a workspace snapshot'
+);
 select throws_ok(
  $$select public.create_document_request(current_setting('test.workflow_a')::uuid, current_setting('test.workflow_supplier')::uuid, array[current_setting('test.workflow_requirement')::uuid])$$,
  '42501', null, 'anonymous users cannot create requests'

@@ -75,16 +75,16 @@ afterEach(() => vi.unstubAllEnvs());
 describe("manufacturer request actions", () => {
   it("denies request creation to a viewer", async () => {
     mocks.roleFor.mockResolvedValue("viewer");
-    const request = form({ companyId, supplierId: requestId, requirementIds: itemId });
+    const request = form({ companyId, supplierId: requestId, requirementIds: itemId, deadline: "2027-01-20" });
     await expect(addDocumentRequest(request)).rejects.toThrow(`REDIRECT ${path}?error=1`);
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("creates a request only for an authorized company", async () => {
-    const request = form({ companyId, supplierId: requestId, requirementIds: itemId });
+    const request = form({ companyId, supplierId: requestId, requirementIds: itemId, deadline: "2027-01-20" });
     await expect(addDocumentRequest(request)).rejects.toThrow(`REDIRECT ${path}`);
     expect(mocks.rpc).toHaveBeenCalledWith("create_document_request", {
-      target_company: companyId, target_supplier: requestId, requirement_ids: [itemId],
+      target_company: companyId, target_supplier: requestId, requirement_ids: [itemId], submission_deadline: "2027-01-20",
     });
     expect(mocks.revalidate).toHaveBeenCalledWith(path);
   });

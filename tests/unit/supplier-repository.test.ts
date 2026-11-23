@@ -83,4 +83,18 @@ describe("supplier repository", () => {
       : repo.archive(companyId, supplierId);
     await expect(operation).rejects.toThrow(action === "rename" ? "Unable to update supplier" : "Unable to archive supplier");
   });
+
+  it("updates contacts only for active suppliers in the selected workspace", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: supplierId }));
+    expect(await repository().updateContact(companyId, supplierId, "a@example.com")).toBe(true);
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(url.searchParams.get("company_id")).toBe(`eq.${companyId}`);
+    expect(url.searchParams.get("id")).toBe(`eq.${supplierId}`);
+    expect(url.searchParams.get("archived_at")).toBe("is.null");
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(JSON.stringify({ contact_email: "a@example.com" }));
+    fetchMock.mockResolvedValueOnce(jsonResponse(null));
+    expect(await repository().updateContact(companyId, supplierId, null)).toBe(false);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ code: "DB_ERROR", message: "failed" }, 400));
+    await expect(repository().updateContact(companyId, supplierId, null)).rejects.toThrow("Unable to update supplier contact");
+  });
 });

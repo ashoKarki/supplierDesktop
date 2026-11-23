@@ -4,7 +4,7 @@ import type { EmailProvider } from "../lib/email/provider";
 const invitationSchema = z.object({
   companyId: z.string().uuid(),
   requestId: z.string().uuid(),
-  email: z.string().trim().max(254).email().toLowerCase(),
+  email: z.string().trim().max(254).email(),
   language: z.enum(["en", "de"]),
 });
 

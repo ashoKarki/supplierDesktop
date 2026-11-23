@@ -46,5 +46,14 @@ export function supplierRepository(client: SupabaseClient<Database>): SupplierRe
       }
       return data !== null;
     },
+    async updateContact(companyId, supplierId, email) {
+      const { data, error } = await client.from("suppliers").update({ contact_email: email })
+        .eq("company_id", companyId).eq("id", supplierId).is("archived_at", null).select("id").maybeSingle();
+      if (error) {
+        console.error("Supplier contact update failed", { code: error.code });
+        throw new Error("Unable to update supplier contact");
+      }
+      return data !== null;
+    },
   };
 }

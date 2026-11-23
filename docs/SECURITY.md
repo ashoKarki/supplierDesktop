@@ -1,7 +1,7 @@
 # Security status
 
 This is not a production-ready security design or a fully verified isolation
-boundary. The current migrations and 135 pgTAP checks passed on the local
+boundary. The current migrations and 152 pgTAP checks passed on the local
 Supabase stack; they cover only a subset of the required security cases.
 
 The initial schema separates company-owned suppliers and memberships with
@@ -79,6 +79,26 @@ untracked token or an ambiguously delivered message; there is no durable
 outbox or retry mechanism. Invitation sending still needs abuse controls.
 Supplier submissions create tenant-scoped in-app notifications; email or push
 alerts to manufacturers are not implemented.
+
+Automatic reminders use a tenant-scoped, RLS-disabled outbox that is accessible
+only to the service role. A restricted RPC selects current obligations,
+deduplicates recipients, leases jobs, and retries failures at most eight times.
+The worker endpoint requires a high-entropy secret, sends with stable Resend
+idempotency keys, and stores only a hash of each supplier upload token. Resend
+idempotency is time-limited, so delivery is at-least-once rather than exactly
+once. Failed jobs require operator review. The feature is not active until
+Supabase Cron, Vault, the production host secrets and the verified Resend sender
+are configured; terminal reminder records containing recipient emails are
+deleted after 180 days. The queued `pg_net` request temporarily contains the
+shared worker secret, so scheduler internals must remain unavailable to
+application roles. The worker also fails closed unless document uploads are
+enabled with a scanner. See [deployment readiness](DEPLOYMENT.md).
+
+Reports are aggregated and paginated inside a tenant-checked SQL RPC rather
+than loading every document into application memory. Export requests use one
+consistent database call and return HTTP 413 above the 10,000-row CSV or
+2,000-row PDF cap. This does not replace RLS, export-role checks, or testing
+the deployed database.
 
 Storage and database writes are not a single transaction. Known failed
 submissions attempt to remove their objects; an ambiguous database outcome is

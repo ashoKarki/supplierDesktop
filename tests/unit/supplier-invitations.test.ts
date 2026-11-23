@@ -17,14 +17,14 @@ function dependencies() {
 }
 
 describe("supplier invitations", () => {
-  it("sends a scoped German invitation to the normalized recipient", async () => {
+  it("sends a scoped German invitation without changing recipient case", async () => {
     const deps = dependencies();
     expect(await sendSupplierInvitation(input, "https://supplierdesk.example", deps)).toEqual({ ok: true });
     expect(deps.issue).toHaveBeenCalledWith(companyId, requestId);
     expect(deps.email.send).toHaveBeenCalledOnce();
     const sent = deps.email.send.mock.calls[0]?.[0];
     expect(sent).toBeDefined();
-    expect(sent?.to).toBe("supplier@example.test");
+    expect(sent?.to).toBe("Supplier@example.test");
     expect(sent?.text).toContain(`https://supplierdesk.example/supplier/upload/${token}?lang=de`);
     expect(sent?.subject).toContain("Dokument");
   });

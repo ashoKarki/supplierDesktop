@@ -53,8 +53,8 @@ beforeEach(() => {
     company_id: companyId, request_id: requestId, expires_at: "2027-01-01T00:00:00.000Z",
   });
   mocks.results = {
-    companies: { data: { name: "Manufacturer" }, error: null },
-    document_requests: { data: { supplier_id: "supplier-id" }, error: null },
+    companies: { data: { name: "Manufacturer", time_zone: "Europe/Vienna" }, error: null },
+    document_requests: { data: { supplier_id: "supplier-id", deadline: "2027-01-20" }, error: null },
     document_request_items: { data: [{ id: itemId, status: "requested", requirement_id: requirementId }], error: null },
     suppliers: { data: { name: "Supplier" }, error: null },
     document_requirements: { data: [{ id: requirementId, name: "Certificate" }], error: null },
@@ -74,6 +74,7 @@ describe("supplier portal page", () => {
     expect(markup).toContain("Manufacturer");
     expect(markup).toContain("Supplier");
     expect(markup).toContain("Certificate");
+    expect(markup).toContain("Submission deadline: 2027-01-20 (Europe/Vienna)");
     expect(markup).toContain('name="file"');
     expect(mocks.filter).toHaveBeenCalledWith("document_requests", "company_id", companyId);
     expect(mocks.filter).toHaveBeenCalledWith("document_request_items", "request_id", requestId);
@@ -88,6 +89,7 @@ describe("supplier portal page", () => {
     const markup = renderToStaticMarkup(await SupplierUploadPage(props({ lang: "de", uploaded: "1" })));
     expect(markup).toContain('lang="de"');
     expect(markup).toContain("Outdated");
+    expect(markup).toContain("Einreichungsfrist: 2027-01-20 (Europe/Vienna)");
     expect(markup).toContain('name="file"');
     expect(mocks.filter).toHaveBeenCalledWith("document_review_events", "company_id", companyId);
     expect(mocks.filter).toHaveBeenCalledWith("document_review_events", "item_id", itemId);

@@ -18,6 +18,7 @@ const requestRows = z.array(z.object({
   id: z.string().uuid(),
   supplier_id: z.string().uuid(),
   created_at: z.string(),
+  deadline: z.iso.date().nullable(),
 }));
 const itemRows = z.array(z.object({
   id: z.string().uuid(),
@@ -191,7 +192,7 @@ export default async function RequestsPage({
       return namedRows.parse(data);
     }),
     loadSupplierPages(async (after) => {
-      let query = client.from("document_requests").select("id, supplier_id, created_at").eq("company_id", company.id).order("id").limit(200);
+      let query = client.from("document_requests").select("id, supplier_id, created_at, deadline").eq("company_id", company.id).order("id").limit(200);
       if (after) query = query.gt("id", after);
       const { data, error } = await query;
       if (error) {
@@ -290,6 +291,7 @@ export default async function RequestsPage({
                   <label key={requirement.id}><input type="checkbox" name="requirementIds" value={requirement.id} /> {requirement.name}</label>
                 ))}
               </fieldset>
+              <label className="field"><span>Submission deadline (optional)</span><input type="date" name="deadline" min="1000-01-01" max="9999-12-31" /></label>
               <button className="button button-dark button-small" type="submit"><Icon name="plus" /> Create request</button>
             </form>
           )}
@@ -303,6 +305,7 @@ export default async function RequestsPage({
               <li className="document-request-row" id={`request-${request.id}`} key={request.id}>
                 <div className="supplier-identity"><span className="supplier-avatar"><Icon name="file" /></span><div>
                   <strong>{supplierNames.get(request.supplier_id) ?? "Supplier unavailable"}</strong>
+                  {request.deadline && <p className="document-meta">Submission deadline: <time dateTime={request.deadline}>{request.deadline}</time></p>}
                 </div></div>
                 {items.filter((item) => item.request_id === request.id).map((item) => (
                   <DocumentItem key={item.id} companyId={company.id} item={item}

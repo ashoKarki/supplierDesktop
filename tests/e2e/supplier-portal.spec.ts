@@ -4,6 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { PDFParse } from "pdf-parse";
 import type { Database } from "../../src/lib/supabase/database.types";
 
 const statusSchema = z.object({
@@ -53,6 +54,7 @@ test.beforeEach(async () => {
   if (requirements.error) throw new Error("Unable to create test requirements");
   const request = await owner.rpc("create_document_request", {
     target_company: companyId, target_supplier: supplier.data.id, requirement_ids: requirements.data.map((item) => item.id),
+    submission_deadline: "2030-01-20",
   });
   if (request.error || !request.data) throw new Error("Unable to create test request");
   requestId = request.data;
@@ -90,11 +92,16 @@ test.afterEach(async () => {
 });
 
 test("mobile supplier submits, resubmits after rejection, and sees both languages", async ({ page, browser }) => {
+  test.setTimeout(90_000);
   await page.goto("/sign-in");
   await page.getByLabel("Business email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/workspace$/);
+  await expect(page).toHaveURL(/\/workspace$/, { timeout: 15_000 });
+  await page.getByRole("link", { name: /Portal Test Manufacturer/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/workspace/${companyId}/dashboard$`));
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.locator(".summary-card").filter({ hasText: "Missing documents" })).toContainText("2");
   await page.goto(`/workspace/${companyId}/requests`);
   await page.getByRole("button", { name: "Create supplier link" }).click();
   const link = await page.getByLabel(/Copy and securely share this link/).inputValue();
@@ -106,8 +113,10 @@ test("mobile supplier submits, resubmits after rejection, and sees both language
   try {
     await supplier.goto(link);
     await expect(supplier.getByRole("heading", { name: "Upload your documents" })).toBeVisible();
+    await expect(supplier.getByText("Submission deadline: 2030-01-20 (Europe/Vienna).")).toBeVisible();
     await supplier.getByRole("link", { name: "Deutsch" }).click();
     await expect(supplier.getByRole("heading", { name: "Laden Sie Ihre Dokumente hoch" })).toBeVisible();
+    await expect(supplier.getByText("Einreichungsfrist: 2030-01-20 (Europe/Vienna).")).toBeVisible();
     const germanAccessibility = await new AxeBuilder({ page: supplier }).include("main").analyze();
     expect(germanAccessibility.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
     const germanItem = supplier.locator(".supplier-document-item").filter({ hasText: "Certificate A" });
@@ -148,7 +157,7 @@ test("mobile supplier submits, resubmits after rejection, and sees both language
       name: "replacement.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7 replacement test"),
     });
     await rejected.getByRole("button", { name: "Submit document" }).click();
-    await expect(rejected.locator(".document-status")).toHaveText("Submitted");
+    await expect(rejected.locator(".document-status")).toHaveText("Submitted", { timeout: 15_000 });
     await expect(supplier.getByRole("status")).toContainText("Document submitted for review");
     await page.reload();
     await first.getByRole("button", { name: "Start review" }).click();
@@ -184,4 +193,59 @@ test("invalid, expired and revoked links show the same safe message", async ({ p
   const revokedResponse = await page.goto(`/supplier/upload/${other.data}`);
   expect(revokedResponse?.status()).toBe(404);
   expect(await page.locator("main").innerText()).toBe(invalidText);
+});
+
+test("reports and CSV exports are restricted to the selected company", async ({ page }) => {
+  const other = await admin.from("companies").insert({
+    name: "Other private company", country: "AT", business_details: "Disposable report test",
+  }).select("id").single();
+  if (other.error || !other.data) throw new Error("Unable to create other test company");
+  try {
+    const supplier = await admin.from("suppliers").insert({ company_id: other.data.id, name: "Other private supplier" });
+    if (supplier.error) throw new Error("Unable to create other test supplier");
+    await page.goto("/sign-in");
+    await page.getByLabel("Business email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/workspace$/, { timeout: 15_000 });
+    await page.goto(`/workspace/${companyId}/reports`);
+    await expect(page.getByRole("heading", { name: "Supplier compliance" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Portal Test Supplier" }).first()).toBeVisible();
+    await expect(page.getByText("Other private supplier")).toHaveCount(0);
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("link", { name: "Download CSV" }).first().click();
+    const download = await downloadPromise;
+    const stream = await download.createReadStream();
+    let csv = "";
+    for await (const chunk of stream) csv += String(chunk);
+    expect(csv).toContain("Portal Test Supplier");
+    expect(csv).not.toContain("Other private supplier");
+    const pdfPromise = page.waitForEvent("download");
+    await page.getByRole("link", { name: "Download PDF" }).first().click();
+    const pdfDownload = await pdfPromise;
+    const pdfStream = await pdfDownload.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of pdfStream) {
+      const value: unknown = chunk;
+      if (!Buffer.isBuffer(value)) throw new Error("Unexpected PDF download chunk");
+      chunks.push(value);
+    }
+    const parser = new PDFParse({ data: Buffer.concat(chunks) });
+    try {
+      const pdf = await parser.getText();
+      expect(pdf.text).toContain("Portal Test Supplier");
+      expect(pdf.text).not.toContain("Other private supplier");
+    } finally {
+      await parser.destroy();
+    }
+    const deniedPage = await page.goto(`/workspace/${other.data.id}/reports`);
+    expect(deniedPage?.status()).toBe(404);
+    const deniedExport = await page.request.get(`/workspace/${other.data.id}/reports/compliance`);
+    expect(deniedExport.status()).toBe(404);
+    const deniedPdf = await page.request.get(`/workspace/${other.data.id}/reports/compliance?format=pdf`);
+    expect(deniedPdf.status()).toBe(404);
+  } finally {
+    const deleted = await admin.from("companies").delete().eq("id", other.data.id);
+    if (deleted.error) throw new Error("Unable to delete other test company");
+  }
 });

@@ -16,6 +16,7 @@ const companySchema = z.object({ id: z.string().uuid(), name: z.string() });
 const suppliersSchema = z.array(z.object({
   id: z.string().uuid(),
   name: z.string(),
+  contact_email: z.string().nullable(),
   archived_at: z.string().nullable(),
 }));
 
@@ -44,7 +45,7 @@ export default async function CompanyWorkspace({
   if (!companyData) notFound();
   const company = companySchema.parse(companyData);
   const supplierData = await loadSupplierPages(async (after) => {
-    let request = client.from("suppliers").select("id, name, archived_at")
+    let request = client.from("suppliers").select("id, name, contact_email, archived_at")
       .eq("company_id", companyId.data).order("id").limit(200);
     if (after) request = request.gt("id", after);
     const { data, error } = await request;
@@ -113,7 +114,8 @@ export default async function CompanyWorkspace({
               <li className="supplier-row" key={supplier.id}>
                 <div className="supplier-identity">
                   <span className="supplier-avatar"><Icon name="building" /></span>
-                  <div><strong>{supplier.name}</strong><span className={`status-label${supplier.archived_at ? " archived" : ""}`}><span />{supplier.archived_at ? "Archived" : "Active"}</span></div>
+                  <div><strong>{supplier.name}</strong><span className={`status-label${supplier.archived_at ? " archived" : ""}`}><span />{supplier.archived_at ? "Archived" : "Active"}</span>
+                    {supplier.contact_email && <span className="document-meta">{supplier.contact_email}</span>}</div>
                 </div>
                 {canEdit && !supplier.archived_at && (
                   <div className="supplier-actions">
@@ -124,6 +126,14 @@ export default async function CompanyWorkspace({
                       <label className="sr-only" htmlFor={`rename-${supplier.id}`}>Rename {supplier.name}</label>
                       <input id={`rename-${supplier.id}`} name="name" defaultValue={supplier.name} required maxLength={200} />
                       <button className="button button-outline button-small" type="submit">Save</button>
+                    </form>
+                    <form action={updateSupplier} className="rename-form">
+                      <input type="hidden" name="companyId" value={company.id} />
+                      <input type="hidden" name="supplierId" value={supplier.id} />
+                      <input type="hidden" name="action" value="contact" />
+                      <label className="sr-only" htmlFor={`contact-${supplier.id}`}>Contact email for {supplier.name}</label>
+                      <input id={`contact-${supplier.id}`} type="email" name="email" defaultValue={supplier.contact_email ?? ""} placeholder="Contact email (optional)" maxLength={254} />
+                      <button className="button button-outline button-small" type="submit">Save contact</button>
                     </form>
                     <form action={updateSupplier}>
                       <input type="hidden" name="companyId" value={company.id} />

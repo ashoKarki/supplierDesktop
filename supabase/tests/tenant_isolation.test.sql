@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(29);
 
 insert into auth.users (id, aud, role, email, email_confirmed_at, raw_user_meta_data)
 values
@@ -19,8 +19,12 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001
 select lives_ok('select public.create_owner_workspace()', 'verified owner A can create a workspace');
 select lives_ok('select public.create_owner_workspace()', 'workspace creation is idempotent');
 select is((select count(*) from public.companies), 1::bigint, 'owner A has one workspace');
+select is((select time_zone from public.companies), 'Europe/Vienna', 'new workspaces use the default time zone');
+select throws_ok($$update public.companies set time_zone = 'America/New_York'$$, '42501', null, 'time zone cannot be changed through the profile update grant');
 select set_config('test.company_a', (select id::text from public.companies), true);
 select lives_ok($$insert into public.suppliers (company_id, name) select id, 'Supplier A' from public.companies$$, 'owner A can add a supplier');
+select lives_ok($$update public.suppliers set contact_email = 'supplier@example.test'$$, 'owner A can set a supplier contact');
+select throws_ok($$update public.suppliers set contact_email = E'bad\n@example.test'$$, '23514', null, 'invalid contact email is rejected');
 select lives_ok($$update public.suppliers set archived_at = now()$$, 'owner A can archive a supplier');
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', true);
@@ -52,6 +56,7 @@ select throws_ok(
   '42501', null, 'viewer cannot create suppliers'
 );
 select is_empty($$update public.suppliers set name = 'Not allowed' returning id$$, 'viewer cannot update suppliers');
+select is_empty($$update public.suppliers set contact_email = 'viewer@example.test' returning id$$, 'viewer cannot update supplier contacts');
 select throws_ok($$update public.company_memberships set role = 'owner'$$, '42501', null, 'viewer cannot change roles');
 select is_empty($$update public.companies set name = 'Not allowed' returning id$$, 'viewer cannot update its company');
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);

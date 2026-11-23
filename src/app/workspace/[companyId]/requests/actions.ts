@@ -25,13 +25,15 @@ export async function addDocumentRequest(form: FormData) {
     companyId: companyId.data,
     supplierId: form.get("supplierId"),
     requirementIds: form.getAll("requirementIds"),
+    deadline: form.get("deadline"),
   }, user.id, {
     roleFor: supplierRepository(client).roleFor,
-    async create(id, supplierId, requirementIds) {
+    async create(id, supplierId, requirementIds, deadline) {
       const { error } = await client.rpc("create_document_request", {
         target_company: id,
         target_supplier: supplierId,
         requirement_ids: requirementIds,
+        submission_deadline: deadline,
       });
       if (error) {
         console.error("Document request creation failed", { code: error.code });

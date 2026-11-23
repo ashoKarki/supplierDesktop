@@ -24,6 +24,45 @@
 - Phase 2 requirements use a renewal interval of 1–120 whole months. Calendar
   month addition clamps to the last day of the destination month. Document
   expiry boundaries include the expiry date and use the company time zone.
+- The Phase 4 dashboard uses `Europe/Vienna` as the initial workspace time zone;
+  configuration is not yet available. Document counts use the most recent
+  request for each supplier and requirement, breaking identical timestamps by
+  request ID. Archived suppliers and cancelled latest requests are excluded
+  from document counts; the total supplier count includes archived suppliers.
+  Expiry alerts count approved documents through 90 days and expired approved
+  or explicitly expired items. This is not a scheduled expiry transition or
+  reminder system.
+- Requests may have an optional submission deadline. Existing requests keep
+  no deadline. The supplier sees the deadline and company time zone. A request
+  counts once as overdue after its deadline when a current requested or
+  rejected item remains outstanding; submitted and under-review items are not
+  overdue. Cancelled or superseded obligations and archived suppliers are
+  excluded. Deadlines do not block late uploads.
+- The compliance report uses the latest request per supplier and requirement.
+  Active suppliers with no current obligations are "Not assessed". For other
+  suppliers the overall priority is action required (rejected), expired,
+  incomplete (requested), pending review, expiring within 90 days, then
+  complete. The counts and status are calculated, not manually assigned.
+  Cancelled latest requests and archived suppliers are excluded.
+  CSV and PDF exports require the `export_data` permission. PDFs embed an
+  open-licensed Unifont font and explicitly reject unsupported characters
+  rather than silently dropping them; CSV remains available.
+- The dashboard uses an RLS-enforced database snapshot. Reports use
+  tenant-checked SQL aggregation and 50-row server-side pages, ordered
+  deterministically. CSV/PDF exports are created from one database snapshot
+  and capped at 10,000 CSV rows or 2,000 PDF rows; larger exports return
+  HTTP 413 rather than silently truncating data.
+- Supplier contact and invitation email addresses retain their case after
+  trimming. Existing addresses previously saved in lower case cannot be
+  automatically restored.
+- Automatic reminders use a Supabase scheduler and secure worker. The selected
+  submission-deadline schedule is seven days before and
+  once the day after the deadline; expiry reminders use 90, 60, 30 and 7 days.
+  Suppliers and company owners/administrators are intended recipients.
+  The application now has a durable outbox, deduplication, bounded retries and
+  an authenticated worker. Production delivery remains inactive until the
+  Resend sender, host/Vault secrets, and Supabase Cron schedule are configured.
+  Supplier reminders are English; the portal remains English/German.
 - The initial document state matrix is in `src/domain/document-state.ts`.
   Submissions, review transitions, rejections, and superseding an approved
   version are persisted and checked in the database. Scheduled expiry and

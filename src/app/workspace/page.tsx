@@ -35,7 +35,7 @@ export default async function WorkspaceList() {
       <ul className="company-list">
         {companies.map((company) => (
           <li key={company.id}>
-            <Link className="company-card" href={`/workspace/${company.id}`}>
+            <Link className="company-card" href={`/workspace/${company.id}/dashboard`}>
               <span className="company-card-icon"><Icon name="building" /></span>
               <span className="company-card-copy"><strong>{company.name}</strong><small>Company workspace</small></span>
               <span className="company-card-action">Open workspace <Icon name="arrowRight" /></span>
