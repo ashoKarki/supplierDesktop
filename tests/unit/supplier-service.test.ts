@@ -10,6 +10,7 @@ function repository(role: "owner" | "viewer" | null) {
     roleFor: vi.fn().mockResolvedValue(role),
     create: vi.fn().mockResolvedValue(true),
     rename: vi.fn().mockResolvedValue(true),
+    updateContact: vi.fn().mockResolvedValue(true),
     archive: vi.fn().mockResolvedValue(true),
   };
 }
@@ -49,6 +50,24 @@ describe("supplier management", () => {
     expect(repo.rename).toHaveBeenCalledWith(companyId, supplierId, "New name");
   });
 
+  it("preserves the case of a supplier contact and can clear it", async () => {
+    const repo = repository("owner");
+    expect(await manageSupplier({ action: "contact", companyId, supplierId, email: "  Contact@Example.com " }, userId, repo))
+      .toEqual({ ok: true });
+    expect(repo.updateContact).toHaveBeenCalledWith(companyId, supplierId, "Contact@Example.com");
+    expect(await manageSupplier({ action: "contact", companyId, supplierId, email: "" }, userId, repo))
+      .toEqual({ ok: true });
+    expect(repo.updateContact).toHaveBeenLastCalledWith(companyId, supplierId, null);
+    expect(await manageSupplier({ action: "contact", companyId, supplierId, email: "bad email" }, userId, repo))
+      .toEqual({ ok: false, reason: "invalid" });
+  });
+
+  it("denies supplier contact changes to viewers", async () => {
+    const repo = repository("viewer");
+    expect(await manageSupplier({ action: "contact", companyId, supplierId, email: "a@example.com" }, userId, repo))
+      .toEqual({ ok: false, reason: "forbidden" });
+    expect(repo.updateContact).not.toHaveBeenCalled();
+  });
   it("reports the workspace supplier limit", async () => {
     const repo = repository("owner");
     repo.create.mockResolvedValue("limit_reached");

@@ -14,7 +14,7 @@ export function WorkspaceShell({
   companyName?: string;
   companyId?: string;
   role?: string;
-  currentSection?: "suppliers" | "requirements" | "requests" | "settings";
+  currentSection?: "dashboard" | "suppliers" | "requirements" | "requests" | "reports" | "settings";
   children: ReactNode;
 }) {
   return (
@@ -34,6 +34,11 @@ export function WorkspaceShell({
             <Icon name="grid" /> <span>Company workspaces</span>
           </Link>
           {companyId && (
+            <Link className={`sidebar-link${currentSection === "dashboard" ? " active" : ""}`} href={`/workspace/${companyId}/dashboard`} aria-current={currentSection === "dashboard" ? "page" : undefined}>
+              <Icon name="grid" /> <span>Dashboard</span>
+            </Link>
+          )}
+          {companyId && (
             <Link className={`sidebar-link${currentSection === "suppliers" ? " active" : ""}`} href={`/workspace/${companyId}`} aria-current={currentSection === "suppliers" ? "page" : undefined}>
               <Icon name="users" /> <span>Suppliers</span>
             </Link>
@@ -49,6 +54,11 @@ export function WorkspaceShell({
             </Link>
           )}
           {companyId && (
+            <Link className={`sidebar-link${currentSection === "reports" ? " active" : ""}`} href={`/workspace/${companyId}/reports`} aria-current={currentSection === "reports" ? "page" : undefined}>
+              <Icon name="grid" /> <span>Reports</span>
+            </Link>
+          )}
+          {companyId && (
             <Link className={`sidebar-link${currentSection === "settings" ? " active" : ""}`} href={`/workspace/${companyId}/settings`} aria-current={currentSection === "settings" ? "page" : undefined}>
               <Icon name="building" /> <span>Company profile</span>
             </Link>
@@ -58,7 +68,6 @@ export function WorkspaceShell({
         <div className="sidebar-upcoming" aria-label="Features in development">
           <span><Icon name="file" /> Documents</span>
           <span><Icon name="users" /> Team members</span>
-          <span><Icon name="grid" /> Reports</span>
         </div>
         <div className="sidebar-bottom">
           <span className="sidebar-status"><span /> EARLY DEVELOPMENT</span>

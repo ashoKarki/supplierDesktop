@@ -24,8 +24,8 @@ export default async function SupplierUploadPage({
   if (!link) notFound();
   const service = createSupabaseServiceClient();
   const [company, request, items] = await Promise.all([
-    service.from("companies").select("name").eq("id", link.company_id).maybeSingle(),
-    service.from("document_requests").select("supplier_id").eq("company_id", link.company_id)
+    service.from("companies").select("name, time_zone").eq("id", link.company_id).maybeSingle(),
+    service.from("document_requests").select("supplier_id, deadline").eq("company_id", link.company_id)
       .eq("id", link.request_id).maybeSingle(),
     service.from("document_request_items").select("id, status, requirement_id")
       .eq("company_id", link.company_id).eq("request_id", link.request_id).order("id").limit(100),
@@ -82,6 +82,7 @@ export default async function SupplierUploadPage({
         <h1>{t("title")}</h1>
         <p>{t("introduction", { company: company.data.name, supplier: supplier.data.name })}</p>
         <p>{t("expires", { date: expiry })}</p>
+        {request.data.deadline && <p>{t("deadline", { date: request.data.deadline, timeZone: company.data.time_zone })}</p>}
       </div>
       {search.error && <p role="alert" className="form-alert">{t(`errors.${error.success ? error.data : "other"}`)}</p>}
       {search.uploaded && <p role="status" className="supplier-upload-success">{t("uploaded")}</p>}

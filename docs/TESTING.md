@@ -36,7 +36,7 @@ denial, supplier submission, and link revocation. Its temporary records and
 objects were removed afterward.
 
 With Docker running, start the local stack using `npx supabase start`, then run
-`npm run test:rls` and `npm run test:integration`. The 135 pgTAP checks pass on
+`npm run test:rls` and `npm run test:integration`. The 152 pgTAP checks pass on
 the local Supabase stack and cover a subset of tenant isolation, role
 restrictions, storage, versions, reviews, and supplier-link expiry and
 revocation. The API integration tests create disposable local users, companies,
@@ -52,14 +52,18 @@ exercise localized email with a fake provider, failure compensation, scoped
 notifications, and concurrent token throttling. No real email is sent in tests.
 Unit tests also cover supplier-link lookup failures and rate limiting, upload
 validation and storage cleanup, document download authorization, workspace
-and request actions, page permissions, and the verification callback. These
-mocked tests supplement, but do not replace, the database isolation tests.
+and request actions, page permissions, deadlines, dashboard aggregation,
+server-paginated reports, reminder delivery/retry handling, CSV
+formula-injection handling, PDF text extraction and pagination, time-zone
+boundaries, and the verification callback. These mocked tests supplement, but
+do not replace, the database isolation tests.
 
 Install Chromium once with `npx playwright install chromium`, then run
-`npm run test:e2e` against the local stack. The two browser tests use disposable
+`npm run test:e2e` against the local stack. The browser tests use disposable
 data and a separate app server on port 3100. They cover mobile English/German
 uploads, rejection and resubmission, review, safe invalid-link pages and axe
-checks for serious or critical portal violations. Failed-test traces can contain
+checks for serious or critical portal violations. They also check report and
+CSV and PDF access across separate companies. Failed-test traces can contain
 disposable bearer links; do not use this suite with real customer data. The
 app's local no-op scanner does not protect uploads from malware.
 
@@ -68,9 +72,15 @@ application source; `npm run test:all` runs the local pipeline. Coverage gates
 require 80% overall and 90% in each of `src/domain/**` and
 `src/lib/security/**` for lines, statements, functions, and branches. The
 global threshold includes the domain and security files. Browser execution is
-not included. The latest local run measured 86.48% lines, 84.67% statements,
-81.20% functions, and 81.18% branches. Other pipeline checks run before the
-coverage gate. The updated CI workflow has not yet been verified on GitHub.
+not included. The last fully verified run before the reminder and report
+pagination changes measured 88.38% lines, 86.48% statements, 84.94% functions,
+and 83.46% branches, with 152 pgTAP assertions and 297 unit/integration tests.
+After the reminder and report-pagination changes, all 291 unit tests, lint,
+type-checking and the production build pass. Unit-only coverage is 88.28%
+lines, 86.50% statements, 85.50% functions, and 82.02% branches. The database,
+browser, and full unit/integration coverage suites could not be rerun because
+the local Docker daemon was unavailable. The updated CI workflow has not yet
+been verified on GitHub.
 
 Do not treat the current SQL, policies, or registration flow as production-ready
 until the database tests and full security and end-to-end suites have passed.

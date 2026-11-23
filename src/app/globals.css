@@ -202,6 +202,24 @@ a { text-decoration: none; }
 .company-card-action { display: flex; align-items: center; gap: 6px; color: #576780; font-size: 11px; font-weight: 650; }
 .company-card-action svg { width: 15px; }
 .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }
+.dashboard-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.dashboard-context { margin: -16px 0 22px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.dashboard-empty { padding: 18px 0 4px; color: var(--muted); font-size: 13px; }
+.dashboard-expiry-list { display: grid; gap: 0; list-style: none; }
+.dashboard-expiry-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.6; }
+.dashboard-expiry-list a { color: var(--deep); text-decoration: underline; }
+.report-section { margin-bottom: 20px; }
+.report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.report-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.report-pagination p { margin: 0; color: var(--muted); font-size: 13px; }
+.report-pagination [aria-disabled="true"] { opacity: 0.55; pointer-events: none; }
+.report-table-scroll { overflow-x: auto; margin-top: 16px; }
+.report-table-scroll table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.report-table-scroll th, .report-table-scroll td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.report-table-scroll th { color: var(--muted); font-weight: 650; }
+@media (max-width: 640px) {
+  .report-pagination { align-items: flex-start; flex-direction: column; }
+}
 .summary-card { display: flex; align-items: center; gap: 15px; min-height: 101px; padding: 20px; border: 1px solid #e4e6ea; border-radius: 10px; background: white; }
 .summary-card > div { display: grid; gap: 7px; }.summary-card > div > span { color: #8b919b; font-size: 11px; }.summary-card strong { font-size: 23px; font-weight: 650; line-height: 1; }
 .summary-icon svg { width: 19px; }
@@ -230,6 +248,8 @@ a { text-decoration: none; }
 .status-label > span { width: 6px; height: 6px; border-radius: 50%; background: #16a34a; }
 .status-label.archived { color: #8b9199; }.status-label.archived > span { background: #abb1b9; }
 .supplier-actions, .rename-form { display: flex; align-items: center; gap: 8px; }
+.supplier-actions { flex-wrap: wrap; justify-content: flex-end; }
+.supplier-identity .document-meta { overflow-wrap: anywhere; }
 .rename-form input { width: 175px; min-height: 38px; }
 .rename-form .button { min-height: 38px; }
 .archive-button { border: 0; background: transparent; padding: 10px 3px; color: #818790; font-size: 11px; font-weight: 600; }

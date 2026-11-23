@@ -133,15 +133,19 @@ describe("document requests against local Supabase", () => {
       target_company: tenantA.companyId,
       target_supplier: supplierId,
       requirement_ids: [requirementId],
+      submission_deadline: "2028-02-29",
     });
     expect(created.error).toBeNull();
     if (!created.data) throw new Error("Request creation did not return an ID");
 
+    const ownRequest = await tenantA.client.from("document_requests").select("deadline").eq("id", created.data).single();
+    expect(ownRequest.error).toBeNull();
+    expect(ownRequest.data?.deadline).toBe("2028-02-29");
     const ownItems = await tenantA.client.from("document_request_items")
       .select("id").eq("request_id", created.data);
     expect(ownItems.error).toBeNull();
     expect(ownItems.data).toHaveLength(1);
-    const otherRequests = await tenantB.client.from("document_requests").select("id").eq("id", created.data);
+    const otherRequests = await tenantB.client.from("document_requests").select("id, deadline").eq("id", created.data);
     expect(otherRequests.error).toBeNull();
     expect(otherRequests.data).toEqual([]);
     const otherItems = await tenantB.client.from("document_request_items")
@@ -163,6 +167,39 @@ describe("document requests against local Supabase", () => {
     const requests = await tenantB.client.from("document_requests").select("id");
     expect(requests.error).toBeNull();
     expect(requests.data).toEqual([]);
+  });
+
+  it("isolates supplier contacts and denies unauthorized updates", async () => {
+    const updated = await tenantA.client.from("suppliers").update({ contact_email: "Supplier@example.test" })
+      .eq("company_id", tenantA.companyId).eq("id", supplierId).select("contact_email").single();
+    expect(updated.error).toBeNull();
+    expect(updated.data?.contact_email).toBe("Supplier@example.test");
+    const other = await tenantB.client.from("suppliers").select("contact_email").eq("id", supplierId);
+    expect(other.error).toBeNull();
+    expect(other.data).toEqual([]);
+    const viewerUpdate = await viewer.from("suppliers").update({ contact_email: "viewer@example.test" })
+      .eq("id", supplierId).select("id");
+    expect(viewerUpdate.error).toBeNull();
+    expect(viewerUpdate.data).toEqual([]);
+  });
+
+  it("returns an atomic workspace snapshot only to members of that company", async () => {
+    const own = await tenantA.client.rpc("workspace_document_snapshot", { target_company: tenantA.companyId });
+    expect(own.error).toBeNull();
+    const snapshot = z.object({
+      suppliers: z.array(z.object({ id: z.string() })),
+      requirements: z.array(z.object({ id: z.string() })),
+      requests: z.array(z.object({ id: z.string(), supplier_id: z.string() })),
+      items: z.array(z.object({ request_id: z.string(), requirement_id: z.string() })),
+    }).parse(own.data);
+    expect(snapshot.suppliers.some((supplier) => supplier.id === supplierId)).toBe(true);
+    expect(snapshot.requirements.some((requirement) => requirement.id === requirementId)).toBe(true);
+    expect(snapshot.items.every((item) => snapshot.requests.some((request) => request.id === item.request_id))).toBe(true);
+    expect(snapshot.items.every((item) => snapshot.requirements.some((requirement) => requirement.id === item.requirement_id))).toBe(true);
+    const denied = await tenantB.client.rpc("workspace_document_snapshot", { target_company: tenantA.companyId });
+    expect(denied.error?.code).toBe("42501");
+    const viewerSnapshot = await viewer.rpc("workspace_document_snapshot", { target_company: tenantA.companyId });
+    expect(viewerSnapshot.error).toBeNull();
   });
 
   it("denies a viewer and another company's owner from creating requests in the workspace", async () => {

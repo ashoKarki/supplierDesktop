@@ -1,9 +1,19 @@
 # SupplierDesk
 
-This is an incomplete Phase 1 and Phase 2 implementation, **not ready for deployment or
-customer data**. A local registration smoke test passed, but automated
-end-to-end coverage is incomplete and the database policy tests cover only a
-subset of isolation requirements.
+SupplierDesk is a multi-tenant supplier compliance application built with
+Next.js and Supabase. The current implementation includes company enrollment,
+tenant-scoped supplier and document workflows, a dashboard, reports, and a
+scheduled reminder worker.
+
+This is **not yet ready for production data**. Production malware scanning,
+hosting-specific trusted-proxy configuration, employee invitations, billing,
+workspace cancellation and retention, and independent security review remain
+outstanding. See the [deployment readiness guide](docs/DEPLOYMENT.md) before
+deploying.
+
+The proposed application-wide UI/UX specification is in
+[application design](docs/UI-UX-DESIGN.md); it describes future screens as well
+as existing development features.
 
 ## Local development
 
@@ -55,18 +65,28 @@ The local Supabase config requires email confirmation. Hosted Supabase projects
 must separately enable email confirmation and configure the exact callback URL;
 deploying with confirmation disabled breaks the security requirement.
 
-Initial protected workspace pages and supplier create, rename, search, and
-archive flows are present; only creation and archiving have been smoke-tested
-against the database. Workspaces have a 30-day trial and limits of 100 suppliers
-(including archived suppliers) and 10 members (including owners), enforced by
-the database. The planned price is €30 per company per month; billing is not
-implemented and access continues after trial expiry. Existing workspaces receive
-a full trial beginning when the trial migration runs. Employee invitations,
-supplier import, billing, app-wide internationalization, and comprehensive
-integration and browser tests are not implemented. Cancellation and
-six-month retention deletion are also not implemented. See [testing](docs/TESTING.md),
-[security](docs/SECURITY.md), and [decisions](docs/DECISIONS.md).
+Workspaces have a 30-day trial and database-enforced limits of 100 suppliers
+(including archived suppliers) and 10 members (including owners). The planned
+price is €30 per company per month; payment processing is deferred and access
+continues after trial expiry. Employee invitations, billing, cancellation,
+six-month retention deletion, supplier import, and app-wide internationalization
+are not implemented. See [testing](docs/TESTING.md), [security](docs/SECURITY.md),
+[decisions](docs/DECISIONS.md), and [deployment readiness](docs/DEPLOYMENT.md).
 
-Phase 2 includes document requests, local-only uploads, private storage,
-version history, reviews, and supplier upload links. These are development
-features, not a production-ready security or operations design.
+Document requests, private storage, version history, reviews, and supplier
+upload links are implemented. The only scanner is a local development no-op;
+production uploads and application-issued supplier links therefore fail closed.
+Do not use real or confidential customer data.
+
+The initial Phase 4 dashboard shows company-scoped document counts, overdue
+requests and approved documents expiring within 7, 30, 60 and 90 days, using
+the latest request per supplier and requirement. Requests may include an
+optional deadline, visible to suppliers, and active suppliers can have a contact
+email. Dates use the company time zone, initially Europe/Vienna. The reminder
+worker supports deadline and expiry notices, but is not active until the
+deployment host, secrets, Resend sender, and Supabase Cron schedule are
+configured and verified. The Reports page provides supplier
+compliance, expiry and outstanding-request views with server-side pagination;
+authorized staff can download company-scoped CSV files up to 10,000 rows and
+PDF files up to 2,000 rows. PDF export fails explicitly for characters
+unsupported by the embedded font; CSV remains available in that case.

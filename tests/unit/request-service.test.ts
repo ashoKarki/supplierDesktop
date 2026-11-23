@@ -19,7 +19,13 @@ describe("create document request", () => {
     const repo = repository("procurement_manager");
     expect(await createDocumentRequest(input, userId, repo)).toEqual({ ok: true });
     expect(repo.roleFor).toHaveBeenCalledWith(userId, companyId);
-    expect(repo.create).toHaveBeenCalledWith(companyId, supplierId, [requirementId]);
+    expect(repo.create).toHaveBeenCalledWith(companyId, supplierId, [requirementId], null);
+  });
+
+  it("passes a valid submission deadline to the repository", async () => {
+    const repo = repository("owner");
+    expect(await createDocumentRequest({ ...input, deadline: "2028-02-29" }, userId, repo)).toEqual({ ok: true });
+    expect(repo.create).toHaveBeenCalledWith(companyId, supplierId, [requirementId], "2028-02-29");
   });
 
   it.each(["viewer", null] as const)("rejects request creation for %s", async (role) => {
@@ -32,6 +38,8 @@ describe("create document request", () => {
     { ...input, requirementIds: [] },
     { ...input, requirementIds: [requirementId, requirementId] },
     { ...input, supplierId: "invalid" },
+    { ...input, deadline: "2027-02-29" },
+    { ...input, deadline: "0999-01-01" },
   ])("rejects malformed or duplicate input before querying membership", async (value) => {
     const repo = repository("owner");
     expect(await createDocumentRequest(value, userId, repo)).toEqual({ ok: false, reason: "invalid" });

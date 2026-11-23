@@ -65,7 +65,7 @@ beforeEach(() => {
     companies: { data: { id: companyId, name: "Manufacturer" }, error: null },
     suppliers: { data: [{ id: supplierId, name: "Supplier A", archived_at: null }], error: null },
     document_requirements: { data: [{ id: requirementId, name: "Certificate" }], error: null },
-    document_requests: { data: [{ id: requestId, supplier_id: supplierId, created_at: "2026-01-01" }], error: null },
+    document_requests: { data: [{ id: requestId, supplier_id: supplierId, created_at: "2026-01-01", deadline: "2027-01-20" }], error: null },
     document_request_items: {
       data: [{ id: itemId, request_id: requestId, requirement_id: requirementId, status: "submitted", expires_on: null }],
       error: null,
@@ -98,6 +98,8 @@ describe("manufacturer requests page", () => {
     expect(markup).toContain("Start review");
     expect(markup).toContain("Review history");
     expect(markup).toContain("Supplier link controls");
+    expect(markup).toContain("Submission deadline");
+    expect(markup).toContain("2027-01-20");
     expect(markup).toContain("Revoke");
     for (const table of [
       "suppliers", "document_requirements", "document_requests", "document_request_items",
