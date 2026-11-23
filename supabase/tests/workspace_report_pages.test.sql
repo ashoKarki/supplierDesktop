@@ -7,6 +7,7 @@ values ('36000000-0000-0000-0000-000000000001', 'authenticated', 'authenticated'
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '36000000-0000-0000-0000-000000000001', true);
 select set_config('test.report_company', public.create_owner_workspace()::text, true);
+reset role;
 
 insert into public.suppliers (id, company_id, name, archived_at) values
   ('36100000-0000-0000-0000-000000000001', current_setting('test.report_company')::uuid, 'Active supplier', null),
@@ -31,6 +32,7 @@ insert into public.document_request_items (company_id, request_id, requirement_i
   (current_setting('test.report_company')::uuid, '36300000-0000-0000-0000-000000000003',
     '36200000-0000-0000-0000-000000000001', 'requested', null);
 
+set local role authenticated;
 select set_config('test.compliance_first',
   public.workspace_report_page(current_setting('test.report_company')::uuid, 'compliance', 1, 0)::text, true);
 select is((current_setting('test.compliance_first')::jsonb->>'total')::integer,

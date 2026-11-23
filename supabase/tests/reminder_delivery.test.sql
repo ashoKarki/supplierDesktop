@@ -34,21 +34,30 @@ select is(public.enqueue_due_reminders(), 2, 'supplier and confirmed workspace s
 select is(public.enqueue_due_reminders(), 0, 'repeated enqueueing does not duplicate deliveries');
 select is((select count(*) from public.claim_due_reminders(10)), 2::bigint, 'worker atomically claims due deliveries');
 select is((select count(*) from public.claim_due_reminders(10)), 0::bigint, 'a concurrent claim cannot take an active lease');
+reset role;
+select set_config('test.reminder_delivery', (select id::text from public.reminder_deliveries
+  where recipient_kind = 'supplier'), true);
 select is((select status from public.reminder_deliveries
   where recipient_kind = 'supplier'), 'processing', 'claimed delivery is marked processing');
 
+set local role service_role;
+select set_config('request.jwt.claim.role', 'service_role', true);
 select is(public.create_reminder_supplier_upload_link(
-  (select id from public.reminder_deliveries where recipient_kind = 'supplier'), repeat('a', 64)),
+  current_setting('test.reminder_delivery')::uuid, repeat('a', 64)),
   repeat('a', 64), 'supplier link is issued for the claimed job');
 select is(public.create_reminder_supplier_upload_link(
-  (select id from public.reminder_deliveries where recipient_kind = 'supplier'), repeat('a', 64)),
+  current_setting('test.reminder_delivery')::uuid, repeat('a', 64)),
   repeat('a', 64), 'retry reuses the same bearer link');
+reset role;
 select is((select count(*) from public.supplier_upload_links
   where token_hash = encode(extensions.digest(repeat('a', 64), 'sha256'), 'hex')),
   1::bigint, 'the retry token is stored only once as a hash');
 
+set local role service_role;
+select set_config('request.jwt.claim.role', 'service_role', true);
 select public.complete_reminder_delivery(
-  (select id from public.reminder_deliveries where recipient_kind = 'supplier'), 'failed', 'delivery_failed');
+  current_setting('test.reminder_delivery')::uuid, 'failed', 'delivery_failed');
+reset role;
 select is((select status from public.reminder_deliveries where recipient_kind = 'supplier'),
   'pending', 'failed delivery is returned to the retry queue');
 select is((select attempts from public.reminder_deliveries where recipient_kind = 'supplier'),
